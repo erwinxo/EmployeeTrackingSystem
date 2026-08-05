@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { User } from '../types'
+import { Users, Building2, ShieldCheck } from 'lucide-react'
 
 const LOCAL_STORAGE_KEY = 'ets_employees'
 
@@ -105,6 +106,16 @@ export default function Employees() {
   // Prevent warnings on unused CRUD helpers temporarily during steps
   console.debug('CRUD helpers initialized:', { addEmployee, editEmployee, deleteEmployee })
 
+  const totalEmployees = employees.length
+  const uniqueDepartments = Array.from(
+    new Set(employees.map((e) => e.department).filter(Boolean))
+  )
+  const totalDepartments = uniqueDepartments.length
+  const supervisors = employees.filter(
+    (e) => e.role === 'ADMIN' || e.role === 'MANAGER' || e.role === 'PROJECT_MANAGER'
+  ).length
+  const contributors = employees.filter((e) => e.role === 'EMPLOYEE').length
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -112,6 +123,67 @@ export default function Employees() {
         <p className="text-muted-foreground text-sm mt-1">
           Manage system users, employee profiles, roles, and supervisor mapping.
         </p>
+      </div>
+
+      {/* Top Analytical Stats Grid */}
+      <div className="grid gap-6 sm:grid-cols-3">
+        {/* Total Directory */}
+        <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 h-1 w-full bg-transparent group-hover:bg-foreground transition-all duration-300" />
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Total Personnel
+            </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-secondary text-foreground">
+              <Users size={18} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold tracking-tight">{totalEmployees}</span>
+            <span className="text-[11px] font-bold text-primary">Active Directory</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5">Registered workspace profiles</p>
+        </div>
+
+        {/* Operational Departments */}
+        <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 h-1 w-full bg-transparent group-hover:bg-foreground transition-all duration-300" />
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Departments
+            </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-secondary text-foreground">
+              <Building2 size={18} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold tracking-tight">{totalDepartments}</span>
+            <span className="text-[11px] font-bold text-primary">Cross-functional</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5">Active organizational units</p>
+        </div>
+
+        {/* Management Ratio */}
+        <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 h-1 w-full bg-transparent group-hover:bg-foreground transition-all duration-300" />
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Management Ratio
+            </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-secondary text-foreground">
+              <ShieldCheck size={18} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold tracking-tight">
+              {supervisors}:{contributors}
+            </span>
+            <span className="text-[11px] font-bold text-primary">Admin/PM/Mgr : Staff</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            {supervisors} Admins & Managers vs. {contributors} Staff
+          </p>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
