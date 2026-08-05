@@ -243,7 +243,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="overflow-x-auto overflow-y-auto flex-1 pr-1">
+          <div className="overflow-x-auto overflow-y-auto flex-1 pr-1 custom-scrollbar">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
