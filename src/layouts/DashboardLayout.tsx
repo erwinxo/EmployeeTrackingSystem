@@ -7,6 +7,8 @@ import { Navbar } from '../components/Navbar'
 export function DashboardLayout() {
   const { user, isLoading } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [navVisible, setNavVisible] = useState(true)
+  const [lastScrollTop, setLastScrollTop] = useState(0)
 
   if (isLoading) {
     return (
@@ -22,9 +24,6 @@ export function DashboardLayout() {
   if (!user) {
     return <Navigate to="/login" replace />
   }
-
-  const [navVisible, setNavVisible] = useState(true)
-  const [lastScrollTop, setLastScrollTop] = useState(0)
 
   const handleScroll = (e: React.UIEvent<HTMLElement>) => {
     const scrollTop = e.currentTarget.scrollTop

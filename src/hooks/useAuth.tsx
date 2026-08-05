@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState } from 'react'
 import type { User, UserRole } from '../types'
 
 interface AuthContextType {
@@ -43,23 +44,22 @@ const MOCK_USERS: Record<UserRole, User> = {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    // Check local storage on mount
+  const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    } else {
-      // Default auto-login to Admin for Day 1 convenience
-      const defaultUser = MOCK_USERS.ADMIN
-      setUser(defaultUser)
-      localStorage.setItem('user', JSON.stringify(defaultUser))
-      localStorage.setItem('token', 'mock-jwt-token')
+      try {
+        return JSON.parse(savedUser) as User
+      } catch {
+        return null
+      }
     }
-    setIsLoading(false)
-  }, [])
+    // Default auto-login to Admin for Day 1 convenience
+    const defaultUser = MOCK_USERS.ADMIN
+    localStorage.setItem('user', JSON.stringify(defaultUser))
+    localStorage.setItem('token', 'mock-jwt-token')
+    return defaultUser
+  })
+  const [isLoading, setIsLoading] = useState(false)
 
   const login = async (email: string, role: UserRole) => {
     setIsLoading(true)

@@ -23,7 +23,7 @@ export default function Login() {
     try {
       await login(email, role)
       navigate('/dashboard')
-    } catch (err) {
+    } catch {
       setError('System authentication failed. Please verify credentials.')
     } finally {
       setLoading(false)
