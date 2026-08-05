@@ -84,9 +84,11 @@ export function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
           collapsed ? "justify-center px-0" : "justify-between px-6"
         )}>
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-xl shrink-0">
-              E
-            </div>
+            <img
+              src="/Logo1.png"
+              alt="EmpTracker Logo"
+              className="h-9 w-9 object-contain shrink-0"
+            />
             {!collapsed && (
               <span className="font-semibold text-lg tracking-tight whitespace-nowrap bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
                 EmpTracker
