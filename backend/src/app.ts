@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/auth.routes';
+import userRoutes from './routes/user.routes';
 import projectRoutes from './routes/project.routes';
 import requirementRoutes from './routes/requirement.routes';
 import taskRoutes from './routes/task.routes';
@@ -25,6 +26,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/requirements', requirementRoutes);
 app.use('/api/v1/tasks', taskRoutes);

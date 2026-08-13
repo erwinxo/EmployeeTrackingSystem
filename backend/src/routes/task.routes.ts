@@ -7,9 +7,9 @@ import { validateRequest } from '../validations/auth.validation';
 const router = Router();
 const controller = new TaskController();
 
-router.get('/', authenticate, authorize('Super Admin', 'Admin', 'Manager', 'Team Lead', 'Employee'), controller.list.bind(controller));
-router.post('/', authenticate, authorize('Super Admin', 'Admin', 'Manager', 'Team Lead'), taskValidation, validateRequest, controller.create.bind(controller));
-router.put('/:id', authenticate, authorize('Super Admin', 'Admin', 'Manager', 'Team Lead'), taskValidation, validateRequest, controller.update.bind(controller));
-router.delete('/:id', authenticate, authorize('Super Admin', 'Admin', 'Manager', 'Team Lead'), controller.remove.bind(controller));
+router.get('/', authenticate, authorize('ADMIN', 'MANAGER', 'PROJECT_MANAGER', 'EMPLOYEE'), controller.list.bind(controller));
+router.post('/', authenticate, authorize('ADMIN', 'MANAGER', 'PROJECT_MANAGER'), taskValidation, validateRequest, controller.create.bind(controller));
+router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER', 'PROJECT_MANAGER'), taskValidation, validateRequest, controller.update.bind(controller));
+router.delete('/:id', authenticate, authorize('ADMIN', 'MANAGER', 'PROJECT_MANAGER'), controller.remove.bind(controller));
 
 export default router;

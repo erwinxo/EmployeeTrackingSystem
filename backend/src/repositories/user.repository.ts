@@ -10,4 +10,43 @@ export class UserRepository {
   async findByEmail(email: string) {
     return prisma.user.findUnique({ where: { email } });
   }
+
+  async findAll() {
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+
+  async updateUser(id: string, data: any) {
+    return prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+
+  async deleteUser(id: string) {
+    return prisma.user.delete({
+      where: { id },
+      select: {
+        id: true
+      }
+    });
+  }
 }
