@@ -1,10 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState } from 'react'
 import type { User, UserRole } from '../types'
+import api from '../services/api'
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, role: UserRole) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   logout: () => void
   switchRole: (role: UserRole) => void
   isLoading: boolean
@@ -53,23 +54,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null
       }
     }
-    // Default auto-login to Admin for Day 1 convenience
-    const defaultUser = MOCK_USERS.ADMIN
-    localStorage.setItem('user', JSON.stringify(defaultUser))
-    localStorage.setItem('token', 'mock-jwt-token')
-    return defaultUser
+    return null
   })
   const [isLoading, setIsLoading] = useState(false)
 
-  const login = async (email: string, role: UserRole) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const selectedUser = MOCK_USERS[role]
-    const userWithEmail = { ...selectedUser, email }
-    setUser(userWithEmail)
-    localStorage.setItem('user', JSON.stringify(userWithEmail))
-    localStorage.setItem('token', 'mock-jwt-token')
-    setIsLoading(false)
+    try {
+      const response = await api.post('/auth/login', { email, password })
+      const { user: dbUser, token } = response.data.data
+
+      const frontendUser: User = {
+        id: dbUser.id,
+        name: dbUser.fullName || dbUser.name || 'Anonymous User',
+        email: dbUser.email,
+        role: (dbUser.role || 'EMPLOYEE').toUpperCase() as UserRole,
+      }
+
+      setUser(frontendUser)
+      localStorage.setItem('user', JSON.stringify(frontendUser))
+      localStorage.setItem('token', token)
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const logout = () => {

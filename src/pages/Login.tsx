@@ -1,30 +1,31 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks'
-import type { UserRole } from '../types'
 import { KeyRound, Mail, ShieldAlert, Sparkles, LogIn } from 'lucide-react'
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<UserRole>('EMPLOYEE')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email) {
-      setError('Please specify your registered email address')
+    if (!email || !password) {
+      setError('Please specify both your email address and password')
       return
     }
     setError('')
     setLoading(true)
     try {
-      await login(email, role)
+      await login(email, password)
       navigate('/dashboard')
-    } catch {
-      setError('System authentication failed. Please verify credentials.')
+    } catch (err: any) {
+      console.error(err)
+      const msg = err.response?.data?.message || err.message || 'System authentication failed. Please verify credentials.'
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -82,23 +83,17 @@ export default function Login() {
 
           <div className="space-y-2">
             <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block">
-              Privilege Level
+              Password
             </label>
             <div className="relative">
               <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                className="w-full rounded-2xl border border-border/80 bg-background/50 py-3.5 pl-11 pr-4 text-sm outline-none focus:border-primary focus:bg-background/80 cursor-pointer transition-all text-white appearance-none"
-              >
-                <option value="EMPLOYEE" className="bg-[#121318]">Employee Profile (John Connor)</option>
-                <option value="MANAGER" className="bg-[#121318]">Manager Profile (Marcus Wright)</option>
-                <option value="ADMIN" className="bg-[#121318]">Administrator Profile (Sarah Connor)</option>
-              </select>
-              {/* Custom arrow down for select */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground text-xs font-bold">
-                ▼
-              </div>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-2xl border border-border/80 bg-background/50 py-3.5 pl-11 pr-4 text-sm outline-none focus:border-primary focus:bg-background/80 transition-all text-white placeholder:text-muted-foreground/60"
+              />
             </div>
           </div>
 

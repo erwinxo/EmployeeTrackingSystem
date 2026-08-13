@@ -11,7 +11,7 @@ async function main() {
       fullName: 'System Admin',
       email: 'admin@example.com',
       password,
-      role: 'Super Admin',
+      role: 'ADMIN',
       isActive: true,
     },
   });
