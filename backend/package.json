@@ -17,7 +17,7 @@
     "express",
     "typescript",
     "prisma",
-    "postgresql",
+    "mongodb",
     "rbac"
   ],
   "author": "Senior Backend Engineer",
