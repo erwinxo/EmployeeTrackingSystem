@@ -1,7 +1,7 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState } from 'react'
 import type { User, UserRole } from '../types'
 import api from '../services/api'
+import { STORAGE_KEYS } from '../constants'
 
 interface AuthContextType {
   user: User | null
@@ -14,7 +14,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    const savedUser = localStorage.getItem('user')
+    const savedUser = localStorage.getItem(STORAGE_KEYS.USER)
     if (savedUser) {
       try {
         return JSON.parse(savedUser) as User
@@ -40,8 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(frontendUser)
-      localStorage.setItem('user', JSON.stringify(frontendUser))
-      localStorage.setItem('token', token)
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(frontendUser))
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token)
     } catch (error) {
       console.error('Login error:', error)
       throw error
@@ -52,8 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
+    localStorage.removeItem(STORAGE_KEYS.USER)
+    localStorage.removeItem(STORAGE_KEYS.TOKEN)
   }
 
   return (
