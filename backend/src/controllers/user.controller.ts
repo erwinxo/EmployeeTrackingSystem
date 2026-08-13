@@ -17,13 +17,14 @@ export class UserController {
 
   async create(req: Request, res: Response): Promise<void> {
     try {
-      const { fullName, email, password, role } = req.body;
+      const { fullName, email, password, role, department } = req.body;
       const hashedPassword = await bcrypt.hash(password || 'Default123!', 10);
       const user = await userRepository.createUser({
         fullName,
         email,
         password: hashedPassword,
         role: role || 'EMPLOYEE',
+        department,
       });
       // Omit password from response
       const { password: _, ...userWithoutPassword } = user;
@@ -36,12 +37,13 @@ export class UserController {
   async update(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
-      const { fullName, email, role, isActive } = req.body;
+      const { fullName, email, role, isActive, department } = req.body;
       const updated = await userRepository.updateUser(id, {
         fullName,
         email,
         role,
         isActive,
+        department,
       });
       res.status(200).json(successResponse('User updated successfully', updated));
     } catch (error) {
