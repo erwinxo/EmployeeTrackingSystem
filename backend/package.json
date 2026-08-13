@@ -1,4 +1,4 @@
- {
+{
   "name": "employee-tracking-backend",
   "version": "1.0.0",
   "description": "Employee Tracking & Project Reporting System Backend",
@@ -31,6 +31,7 @@
     "express-validator": "^7.0.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.5.0",
     "morgan": "^1.10.0",
     "swagger-jsdoc": "^6.0.0",
     "swagger-ui-express": "^4.1.8",
