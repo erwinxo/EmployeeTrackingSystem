@@ -7,42 +7,10 @@ interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<void>
   logout: () => void
-  switchRole: (role: UserRole) => void
   isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-const MOCK_USERS: Record<UserRole, User> = {
-  ADMIN: {
-    id: '1',
-    name: 'Sarah Connor',
-    email: 'admin@company.com',
-    role: 'ADMIN',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-  },
-  PROJECT_MANAGER: {
-    id: '4',
-    name: 'Elena Rostova',
-    email: 'pm@company.com',
-    role: 'PROJECT_MANAGER',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-  },
-  MANAGER: {
-    id: '2',
-    name: 'Marcus Wright',
-    email: 'manager@company.com',
-    role: 'MANAGER',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-  },
-  EMPLOYEE: {
-    id: '3',
-    name: 'John Connor',
-    email: 'employee@company.com',
-    role: 'EMPLOYEE',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-  },
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
@@ -88,14 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('token')
   }
 
-  const switchRole = (role: UserRole) => {
-    const newUser = MOCK_USERS[role]
-    setUser(newUser)
-    localStorage.setItem('user', JSON.stringify(newUser))
-  }
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, switchRole, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

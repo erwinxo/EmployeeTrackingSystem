@@ -1,7 +1,6 @@
 import { useAuth, useTheme } from '../hooks'
-import { Menu, Sun, Moon, Laptop, ShieldCheck } from 'lucide-react'
+import { Menu, Sun, Moon, Laptop } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import type { UserRole } from '../types'
 import { cn } from '../utils'
 
 interface NavbarProps {
@@ -10,7 +9,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ visible, setMobileOpen }: NavbarProps) {
-  const { user, switchRole } = useAuth()
+  const { user } = useAuth()
   const { theme, setTheme } = useTheme()
   const location = useLocation()
 
@@ -24,10 +23,6 @@ export function Navbar({ visible, setMobileOpen }: NavbarProps) {
       .split('/')
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
       .join(' / ')
-  }
-
-  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    switchRole(e.target.value as UserRole)
   }
 
   return (
@@ -55,21 +50,6 @@ export function Navbar({ visible, setMobileOpen }: NavbarProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Role Switcher - Essential for Demo verification */}
-        <div className="flex items-center gap-2 bg-accent/40 rounded-xl px-3 py-1.5 border border-border">
-          <ShieldCheck size={16} className="text-primary" />
-          <span className="hidden sm:inline text-[11px] font-medium text-muted-foreground">Demo Role:</span>
-          <select
-            value={user.role}
-            onChange={handleRoleChange}
-            className="bg-transparent text-xs font-semibold text-foreground border-none focus:outline-none cursor-pointer"
-          >
-            <option value="ADMIN" className="bg-card">Admin</option>
-            <option value="MANAGER" className="bg-card">Manager</option>
-            <option value="EMPLOYEE" className="bg-card">Employee</option>
-          </select>
-        </div>
-
         {/* Theme Switcher Toggle */}
         <div className="flex items-center rounded-xl bg-accent/30 p-1 border border-border">
           <button
