@@ -17,11 +17,54 @@ import {
   Calendar,
   Sparkles,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import api from '../services/api'
+import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
+
+  // Live state
+  const [projects, setProjects] = useState<any[]>([])
+  const [tasks, setTasks] = useState<any[]>([])
+  const [requirements, setRequirements] = useState<any[]>([])
+  const [usersCount, setUsersCount] = useState(1)
+  const [, setLoading] = useState(false)
+
+  const fetchDashboardData = async () => {
+    setLoading(true)
+    try {
+      const [projRes, tasksRes, reqsRes] = await Promise.all([
+        api.get('/projects'),
+        api.get('/tasks'),
+        api.get('/requirements'),
+      ])
+      setProjects(projRes.data.data)
+      setTasks(tasksRes.data.data)
+      setRequirements(reqsRes.data.data)
+
+      // Fetch users count only if ADMIN
+      if (user?.role === 'ADMIN') {
+        const usersRes = await api.get('/users')
+        setUsersCount(usersRes.data.data.length)
+      } else {
+        setUsersCount(5) // default mockup fallback for non-admins
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard details:', error)
+      toast.error('Failed to update live dashboard metrics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData()
+    }
+  }, [user])
 
   // Weekly Activity Data (5 Weeks)
   const weeklyData = [
@@ -87,64 +130,54 @@ export default function Dashboard() {
     }
   ]
 
-  // Aggregated weekly data (oldest to newest)
-  const aggregatedWeeks = weeklyData.map((week) => {
-    const work = week.days.reduce((sum, d) => sum + d.work, 0)
-    const breaks = week.days.reduce((sum, d) => sum + d.breaks, 0)
-    const lunch = week.days.reduce((sum, d) => sum + d.lunch, 0)
-    const total = work + breaks + lunch
-    const label = week.weekRange.split(' - ')[0]
+  // Aggregated weekly data
+  const aggregatedWeeks = weeklyData.map((week, idx) => {
+    let totalWork = 0
+    let totalBreaks = 0
+    let totalLunch = 0
+    week.days.forEach((d) => {
+      totalWork += d.work
+      totalBreaks += d.breaks
+      totalLunch += d.lunch
+    })
+    const total = totalWork + totalBreaks + totalLunch
     return {
-      label,
+      label: idx === 0 ? 'Current' : `${idx} Wk Ago`,
       fullRange: week.weekRange,
-      work,
-      breaks,
-      lunch,
+      work: totalWork,
+      breaks: totalBreaks,
+      lunch: totalLunch,
       total
     }
   }).reverse()
 
   if (!user) return null
 
-  // Mock projects data
-  const mockProjects = [
-    { id: '1', name: 'Phoenix Redesign', progress: 78, tasksCount: 12, client: 'Phoenix Corp', status: 'Active' },
-    { id: '2', name: 'ERP Core Engine', progress: 42, tasksCount: 34, client: 'Global Retailers', status: 'In Progress' },
-    { id: '3', name: 'iOS Tracking Client', progress: 95, tasksCount: 8, client: 'Self-Funded', status: 'Finishing' },
-    { id: '4', name: 'Excel Report Parser', progress: 15, tasksCount: 6, client: 'Internal Billing', status: 'Planning' },
-  ]
-
-  // Mock tasks linked to requirements
-  const mockTasks = [
-    { id: 'TSK-102', title: 'Implement Client JWT Authorization', priority: 'HIGH', status: 'REVIEW', requirement: 'FR-09: Secure Endpoints', project: 'Phoenix Redesign', employee: 'John Connor', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
-    { id: 'TSK-104', title: 'Export Invoice to XLSX Utility', priority: 'MEDIUM', status: 'IN_PROGRESS', requirement: 'FR-12: Excel Reporting Module', project: 'ERP Core Engine', employee: 'Marcus Wright', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
-    { id: 'TSK-108', title: 'Render Interactive Burn-down Chart', priority: 'HIGH', status: 'IN_PROGRESS', requirement: 'FR-03: Multi-Project Dashboard', project: 'iOS Tracking Client', employee: 'Sarah Connor', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
-    { id: 'TSK-111', title: 'Draft API Endpoint Spec', priority: 'LOW', status: 'FINISHED', requirement: 'FR-01: Requirements Log', project: 'Excel Report Parser', employee: 'John Connor', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
-  ]
-
   const getStats = () => {
     switch (user.role) {
       case 'ADMIN':
         return [
-          { name: 'Active Personnel', value: '18', change: '+2 new hire', desc: '14 active in projects', icon: Users, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Managed Projects', value: '8', change: '87% overall progress', desc: '2 pending client signoff', icon: FolderGit2, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Client Scope Items', value: '34', change: '+6 logged this week', desc: 'Requirements fully traced', icon: ClipboardList, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Task Backlog Size', value: '112', change: '79% completion velocity', desc: '32 items in active review', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Active Personnel', value: usersCount.toString(), change: 'Live Workspace', desc: 'Active security credentials', icon: Users, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Managed Projects', value: projects.length.toString(), change: 'Database Active', desc: 'Tracking active client targets', icon: FolderGit2, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Client Scope Items', value: requirements.length.toString(), change: 'Traced Triggers', desc: 'Scope items in requirement log', icon: ClipboardList, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Task Backlog Size', value: tasks.length.toString(), change: 'Workflow Size', desc: 'Tasks currently on board', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
         ]
       case 'MANAGER':
+      case 'PROJECT_MANAGER':
         return [
-          { name: 'Active Projects', value: '4', change: '75% avg health', desc: 'Phoenix Redesign on schedule', icon: FolderGit2, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Logged Requirements', value: '18', change: '100% trace coverage', desc: 'Linked to 42 subtasks', icon: ClipboardList, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Allocated Tasks', value: '56', change: '18 active in progress', desc: '12 completed this cycle', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Awaiting Your Review', value: '7', change: 'Requires urgent action', desc: 'Blockers detected on TSK-102', icon: Clock, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Active Projects', value: projects.length.toString(), change: 'Database Tracked', desc: 'Assigned system allocations', icon: FolderGit2, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Scope Requirements', value: requirements.length.toString(), change: 'Traced Items', desc: 'Specifications linked to project', icon: ClipboardList, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Allocated Tasks', value: tasks.length.toString(), change: 'Workflow Active', desc: 'Tasks in tracking cycle', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Awaiting Actions', value: tasks.filter(t => t.status === 'In Progress').length.toString(), change: 'Focus Tasks', desc: 'Items currently in progress', icon: Clock, color: 'text-foreground bg-secondary border-border/20' },
         ]
       case 'EMPLOYEE':
       default:
+        const myTasks = tasks.filter(t => t.assignee === user.name)
         return [
-          { name: 'Your Active Tasks', value: '12', change: '2 due today', desc: 'Linked to Phoenix Redesign', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'In Progress Workspace', value: '6', change: 'Active focus', desc: 'Next review milestone: Fri', icon: Clock, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'In Review Queue', value: '3', change: 'Submitted to Marcus', desc: 'Awaiting manager approval', icon: AlertCircle, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Tasks Completed', value: '3', change: 'This monthly cycle', desc: 'Velocity metric: 95%', icon: CheckCircle2, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Your Active Tasks', value: myTasks.length.toString(), change: 'Assigned to you', desc: 'Allocated tasks in workspace', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'In Progress Tasks', value: myTasks.filter(t => t.status === 'In Progress').length.toString(), change: 'Active focus', desc: 'Working on these currently', icon: Clock, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Pending Handover', value: myTasks.filter(t => t.status === 'Pending').length.toString(), change: 'Awaiting kickoff', desc: 'Unstarted tasks queue', icon: AlertCircle, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Tasks Completed', value: myTasks.filter(t => t.status === 'Completed').length.toString(), change: 'Work done', desc: 'Finished allocations list', icon: CheckCircle2, color: 'text-foreground bg-secondary border-border/20' },
         ]
     }
   }
@@ -153,7 +186,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Premium Header Banner with interactive actions */}
+      {/* Premium Header Banner */}
       <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8 shadow-xl">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-foreground/5 blur-3xl" />
         
@@ -173,14 +206,14 @@ export default function Dashboard() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button className="inline-flex items-center gap-2 rounded-xl border border-border bg-card hover:bg-accent px-4 py-2.5 text-xs font-semibold text-foreground transition-all">
+            <Link to="/reports" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card hover:bg-accent px-4 py-2.5 text-xs font-semibold text-foreground transition-all">
               <FileDown size={14} className="text-muted-foreground" />
-              <span>Export Reports</span>
-            </button>
-            <button className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/95 px-4 py-2.5 text-xs font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:translate-y-[-1px]">
+              <span>Generate Reports</span>
+            </Link>
+            <Link to="/tasks" className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/95 px-4 py-2.5 text-xs font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:translate-y-[-1px]">
               <Plus size={14} />
-              <span>Add Task</span>
-            </button>
+              <span>Manage Tasks</span>
+            </Link>
           </div>
         </div>
       </div>
@@ -213,16 +246,14 @@ export default function Dashboard() {
         })}
       </div>
 
-
-
       {/* Projects Progress Board */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left 2 Columns: Tasks Linked to Requirements */}
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col h-[400px]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-bold tracking-tight">Requirement-Linked Tasks</h2>
-              <p className="text-xs text-muted-foreground">Traceability linking tasks to parent client requirements.</p>
+              <h2 className="text-lg font-bold tracking-tight">Scope Tasks List</h2>
+              <p className="text-xs text-muted-foreground">Traceability linking tasks to parent client projects.</p>
             </div>
             
             {/* Search & Filter Bar */}
@@ -249,7 +280,6 @@ export default function Dashboard() {
                 <tr className="border-b border-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   <th className="pb-3 pr-4">Task Info</th>
                   <th className="pb-3 pr-4">Project</th>
-                  <th className="pb-3 pr-4">Parent Requirement</th>
                   <th className="pb-3 pr-4">Priority</th>
                   <th className="pb-3 pr-4">Status</th>
                   <th className="pb-3 text-right">Assignee</th>
@@ -257,20 +287,20 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-border/60 text-xs">
                 {(() => {
-                  const filtered = mockTasks.filter(
+                  const filtered = tasks.filter(
                     (task) =>
                       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      task.project.toLowerCase().includes(searchTerm.toLowerCase())
+                      (task.project?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
                   )
 
                   if (filtered.length === 0) {
                     return (
                       <tr>
-                        <td colSpan={6} className="py-20 text-center">
+                        <td colSpan={5} className="py-20 text-center">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <span className="text-sm font-bold tracking-tight text-muted-foreground/30 uppercase">No Tasks Found</span>
                             <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
-                              We couldn't find any tasks matching "{searchTerm}". Try checking for spelling errors or searching other attributes.
+                              We couldn't find any tasks matching "{searchTerm}". Try adding some workflow tasks.
                             </p>
                           </div>
                         </td>
@@ -278,54 +308,37 @@ export default function Dashboard() {
                     )
                   }
 
-                  return filtered.map((task) => (
+                  return filtered.map((task, idx) => (
                     <tr key={task.id} className="group hover:bg-accent/30 transition-colors">
                       <td className="py-3.5 pr-4">
                         <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{task.title}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">{task.id}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">TSK-{100 + idx}</div>
                       </td>
-                      <td className="py-3.5 pr-4 text-muted-foreground font-medium">{task.project}</td>
+                      <td className="py-3.5 pr-4 text-muted-foreground font-medium">{task.project?.name || 'Unassigned'}</td>
                       <td className="py-3.5 pr-4">
-                        <span className="inline-flex items-center rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground border border-border">
-                          {task.requirement}
-                        </span>
-                      </td>
-                      <td className="py-3.5 pr-4">
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider border',
-                            task.priority === 'HIGH'
-                              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                              : task.priority === 'MEDIUM'
-                              ? 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20'
-                              : 'bg-muted text-muted-foreground border-border/40'
-                          )}
-                        >
-                          {task.priority}
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold tracking-wider border uppercase bg-secondary text-foreground">
+                          Medium
                         </span>
                       </td>
                       <td className="py-3.5 pr-4">
                         <span
                           className={cn(
                             'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold border',
-                            task.status === 'FINISHED'
+                            task.status === 'Completed'
                               ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                              : task.status === 'REVIEW'
-                              ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                              : 'bg-sky-500/10 text-sky-500 border-sky-500/20'
+                              : task.status === 'In Progress'
+                              ? 'bg-sky-500/10 text-sky-500 border-sky-500/20'
+                              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                           )}
                         >
                           <span className={`h-1 w-1 rounded-full ${
-                            task.status === 'FINISHED' ? 'bg-emerald-500' : task.status === 'REVIEW' ? 'bg-amber-500' : 'bg-sky-500'
+                            task.status === 'Completed' ? 'bg-emerald-500' : task.status === 'In Progress' ? 'bg-sky-500' : 'bg-amber-500'
                           }`} />
                           {task.status}
                         </span>
                       </td>
                       <td className="py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className="text-[11px] font-medium text-muted-foreground">{task.employee}</span>
-                          <img src={task.avatar} alt={task.employee} className="h-6 w-6 rounded-full object-cover border border-border" />
-                        </div>
+                        <span className="text-[11px] font-bold text-foreground">{task.assignee}</span>
                       </td>
                     </tr>
                   ))
@@ -453,32 +466,42 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-5">
-              {mockProjects.map((project) => (
-                <div key={project.id} className="space-y-2 group">
-                  <div className="flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-semibold text-foreground group-hover:text-primary transition-colors">{project.name}</span>
-                      <span className="text-[10px] text-muted-foreground block">{project.client}</span>
+              {projects.length === 0 ? (
+                <div className="text-xs text-muted-foreground py-8 text-center">No projects registered.</div>
+              ) : (
+                projects.slice(0, 4).map((project) => {
+                  const totalTasks = project.tasks?.length || 0
+                  const completedTasks = project.tasks?.filter((t: any) => t.status === 'Completed').length || 0
+                  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+                  return (
+                    <div key={project.id} className="space-y-2 group">
+                      <div className="flex items-center justify-between text-xs">
+                        <div>
+                          <span className="font-semibold text-foreground group-hover:text-primary transition-colors">{project.name}</span>
+                          <span className="text-[10px] text-muted-foreground block">{project.status}</span>
+                        </div>
+                        <span className="font-bold text-muted-foreground">{progress}%</span>
+                      </div>
+                      {/* Custom progress bar */}
+                      <div className="h-2 w-full rounded-full bg-accent overflow-hidden border border-border/40">
+                        <div
+                          className="h-full rounded-full bg-foreground transition-all duration-500"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
                     </div>
-                    <span className="font-bold text-muted-foreground">{project.progress}%</span>
-                  </div>
-                  {/* Custom progress bar */}
-                  <div className="h-2 w-full rounded-full bg-accent overflow-hidden border border-border/40">
-                    <div
-                      className="h-full rounded-full bg-foreground transition-all duration-500"
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                  )
+                })
+              )}
             </div>
           </div>
 
           <div className="border-t border-border mt-6 pt-4">
-            <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-border hover:bg-accent py-2.5 text-xs font-semibold transition-colors text-muted-foreground hover:text-foreground">
+            <Link to="/projects" className="flex w-full items-center justify-center gap-2 rounded-xl border border-border hover:bg-accent py-2.5 text-xs font-semibold transition-colors text-muted-foreground hover:text-foreground">
               <span>View Project Registry</span>
               <ArrowUpRight size={14} />
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -488,30 +511,21 @@ export default function Dashboard() {
             <span>Workspace Activity Log</span>
           </h2>
           <div className="space-y-4">
-            <div className="flex gap-4 items-start relative pb-4 border-l border-border/80 pl-4 ml-2 last:border-0 last:pb-0">
-              <div className="absolute left-[-21px] top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-primary ring-4 ring-card" />
-              <div>
-                <p className="text-sm font-semibold">Logged Project Requirement</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Project Phoenix Redesign updated by Marcus Wright (Manager).</p>
-                <span className="text-[10px] text-muted-foreground mt-1.5 block">2 hours ago</span>
+            {tasks.slice(0, 3).map((task) => (
+              <div key={task.id} className="flex gap-4 items-start relative pb-4 border-l border-border/80 pl-4 ml-2 last:border-0 last:pb-0">
+                <div className="absolute left-[-21px] top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-primary ring-4 ring-card" />
+                <div>
+                  <p className="text-sm font-semibold">Workflow Status Change</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    <span className="font-semibold text-primary">{task.assignee}</span> updated task status to <span className="font-semibold text-foreground">{task.status}</span>.
+                  </p>
+                  <span className="text-[10px] text-muted-foreground mt-1.5 block">Logged in workspace</span>
+                </div>
               </div>
-            </div>
-            <div className="flex gap-4 items-start relative pb-4 border-l border-border/80 pl-4 ml-2 last:border-0 last:pb-0">
-              <div className="absolute left-[-21px] top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-primary ring-4 ring-card" />
-              <div>
-                <p className="text-sm font-semibold">Task #21 Status Change</p>
-                <p className="text-xs text-muted-foreground mt-0.5">John Connor marked <span className="font-semibold text-primary">Secure Authentication</span> as REVIEW.</p>
-                <span className="text-[10px] text-muted-foreground mt-1.5 block">4 hours ago</span>
-              </div>
-            </div>
-            <div className="flex gap-4 items-start relative pl-4 ml-2">
-              <div className="absolute left-[-21px] top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-muted-foreground/30 ring-4 ring-card" />
-              <div>
-                <p className="text-sm font-semibold">Weekly Analytical Report Compiled</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Automatically formatted, export formats (XLSX, PDF) available.</p>
-                <span className="text-[10px] text-muted-foreground mt-1.5 block">Yesterday at 5:00 PM</span>
-              </div>
-            </div>
+            ))}
+            {tasks.length === 0 && (
+              <div className="text-xs text-muted-foreground py-8 text-center">No recent activity detected.</div>
+            )}
           </div>
         </div>
 
@@ -520,10 +534,7 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between py-2 border-b border-border">
               <span className="text-sm text-muted-foreground">Active User Identity</span>
-              <div className="flex items-center gap-2">
-                <img src={user.avatar} alt="" className="h-5 w-5 rounded-full object-cover border" />
-                <span className="text-sm font-semibold">{user.name}</span>
-              </div>
+              <span className="text-sm font-semibold">{user.name}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-border">
               <span className="text-sm text-muted-foreground">Authorized Role Group</span>
@@ -534,8 +545,8 @@ export default function Dashboard() {
               <span className="text-sm font-medium">{user.email}</span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-muted-foreground">Direct Supervisor</span>
-              <span className="text-sm font-semibold">{user.role === 'ADMIN' ? 'Self (Root)' : 'Sarah Connor'}</span>
+              <span className="text-sm text-muted-foreground">Supervision Tier</span>
+              <span className="text-sm font-semibold">{user.role === 'ADMIN' ? 'Owner / Administrator' : 'Manager Assigned'}</span>
             </div>
           </div>
         </div>
