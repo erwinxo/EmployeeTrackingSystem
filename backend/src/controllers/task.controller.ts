@@ -6,7 +6,7 @@ export class TaskController {
   async list(req: Request, res: Response): Promise<void> {
     const tasks = await prisma.task.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { project: true },
+      include: { project: true, requirement: true },
     });
     res.status(200).json(successResponse('Tasks fetched successfully', tasks));
   }

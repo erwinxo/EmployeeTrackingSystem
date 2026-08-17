@@ -11,6 +11,22 @@ export class UserRepository {
     return prisma.user.findUnique({ where: { email } });
   }
 
+  async findById(id: string) {
+    return prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        department: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+
   async findAll() {
     return prisma.user.findMany({
       select: {

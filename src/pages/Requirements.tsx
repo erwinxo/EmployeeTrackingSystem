@@ -175,32 +175,63 @@ export default function Requirements() {
                   <th className="px-6 py-4">Title / ID</th>
                   <th className="px-6 py-4">Associated Project</th>
                   <th className="px-6 py-4">Priority</th>
+                  <th className="px-6 py-4">Tasks Progress</th>
                   <th className="px-6 py-4">Scope Description</th>
                   {isManagerOrAdmin && <th className="px-6 py-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40 text-xs">
-                {requirements.map((req, idx) => (
-                  <tr key={req.id} className="hover:bg-secondary/20 transition-all">
-                    <td className="px-6 py-4 font-bold text-foreground">
-                      <div className="flex flex-col">
-                        <span>{req.title}</span>
-                        <span className="text-[10px] text-muted-foreground font-normal mt-0.5">REQ-{100 + idx}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      <span className="font-semibold text-foreground">
-                        {req.project?.name || 'Unknown Project'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold border uppercase ${getPriorityColor(req.priority)}`}>
-                        {req.priority || 'Medium'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground max-w-xs truncate">
-                      {req.description || 'No descriptive scope provided.'}
-                    </td>
+                {requirements.map((req, idx) => {
+                  const linkedTasks = req.tasks || [];
+                  const completedTasks = linkedTasks.filter((t: any) => t.status === 'Completed' || t.status === 'FINISHED');
+                  const progressPct = linkedTasks.length > 0 ? Math.round((completedTasks.length / linkedTasks.length) * 100) : 0;
+
+                  return (
+                    <tr key={req.id} className="hover:bg-secondary/20 transition-all">
+                      <td className="px-6 py-4 font-bold text-foreground">
+                        <div className="flex flex-col">
+                          <span>{req.title}</span>
+                          <span className="text-[10px] text-muted-foreground font-normal mt-0.5">REQ-{100 + idx}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        <span className="font-semibold text-foreground">
+                          {req.project?.name || 'Unknown Project'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold border uppercase ${getPriorityColor(req.priority)}`}>
+                          {req.priority || 'Medium'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1 max-w-[180px]">
+                          {linkedTasks.length > 0 ? (
+                            <>
+                              <div className="flex justify-between text-[9px] font-bold">
+                                <span className="text-muted-foreground">COMPLETED</span>
+                                <span className="text-foreground">
+                                  {completedTasks.length} / {linkedTasks.length}
+                                </span>
+                              </div>
+                              <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-primary rounded-full transition-all duration-300"
+                                  style={{ width: `${progressPct}%` }}
+                                />
+                              </div>
+                              <div className="text-[9px] text-muted-foreground truncate mt-0.5" title={linkedTasks.map((t: any) => t.title).join(', ')}>
+                                {linkedTasks.map((t: any) => t.title).join(', ')}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground italic">No linked tasks</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground max-w-xs truncate">
+                        {req.description || 'No descriptive scope provided.'}
+                      </td>
                     {isManagerOrAdmin && (
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -222,7 +253,8 @@ export default function Requirements() {
                       </td>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

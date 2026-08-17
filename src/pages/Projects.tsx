@@ -21,6 +21,17 @@ export default function Projects() {
   const [status, setStatus] = useState<'Planning' | 'In Progress' | 'Completed' | 'On Hold'>('Planning')
   const [editingId, setEditingId] = useState<string | null>(null)
 
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('All')
+
+  const filteredProjects = projects.filter((proj) => {
+    const matchesSearch = proj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (proj.description && proj.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    const matchesStatus = statusFilter === 'All' || proj.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
   const fetchProjects = async () => {
     setLoading(true)
     try {
@@ -141,6 +152,32 @@ export default function Projects() {
         )}
       </div>
 
+      {/* Filters UI */}
+      <div className="flex flex-col sm:flex-row gap-4 bg-card border border-border p-4 rounded-2xl shadow-sm">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search projects by name or description..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground"
+          />
+        </div>
+        <div className="w-full sm:w-48">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Planning">Planning</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="On Hold">On Hold</option>
+          </select>
+        </div>
+      </div>
+
       {/* Projects Grid */}
       {loading ? (
         <div className="py-20 text-center text-muted-foreground text-sm font-semibold">
@@ -154,9 +191,17 @@ export default function Projects() {
             Get started by logging the workspace's first project.
           </p>
         </div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card/20 py-12 text-center shadow-sm">
+          <AlertCircle className="mx-auto h-6 w-6 text-muted-foreground" />
+          <h3 className="mt-3 text-xs font-bold">No Matching Projects</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            No projects match the filters you've applied. Try adjusting your search query or status filter.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((proj) => {
+          {filteredProjects.map((proj) => {
             const totalTasks = proj.tasks?.length || 0
             const completedTasks = proj.tasks?.filter((t: any) => t.status === 'Completed').length || 0
             const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0

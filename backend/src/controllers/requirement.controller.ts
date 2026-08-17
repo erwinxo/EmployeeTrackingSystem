@@ -6,7 +6,7 @@ export class RequirementController {
   async list(req: Request, res: Response): Promise<void> {
     const requirements = await prisma.clientRequirement.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { project: true },
+      include: { project: true, tasks: true },
     });
     res.status(200).json(successResponse('Requirements fetched successfully', requirements));
   }

@@ -10,6 +10,7 @@ export default function Tasks() {
 
   const [tasks, setTasks] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
+  const [requirements, setRequirements] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
   // Modals
@@ -19,20 +20,62 @@ export default function Tasks() {
   // Form Fields
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [status, setStatus] = useState<'Pending' | 'In Progress' | 'Completed'>('Pending')
+  const [status, setStatus] = useState<'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'FINISHED'>('TODO')
   const [assignee, setAssignee] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [requirementId, setRequirementId] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  const normalizeStatus = (st: string): 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'FINISHED' => {
+    switch (st) {
+      case 'Pending':
+      case 'To Do':
+      case 'TODO':
+        return 'TODO'
+      case 'In Progress':
+      case 'IN_PROGRESS':
+        return 'IN_PROGRESS'
+      case 'In Review':
+      case 'REVIEW':
+        return 'REVIEW'
+      case 'Completed':
+      case 'Finished':
+      case 'FINISHED':
+        return 'FINISHED'
+      default:
+        return 'TODO'
+    }
+  }
+
+  const getStatusLabel = (st: string) => {
+    switch (st) {
+      case 'TODO': return 'To Do'
+      case 'IN_PROGRESS': return 'In Progress'
+      case 'REVIEW': return 'In Review'
+      case 'FINISHED': return 'Finished'
+      default: return st
+    }
+  }
+
+  const getRequirementLabel = (reqId: string) => {
+    const idx = requirements.findIndex((r) => r.id === reqId)
+    if (idx !== -1) {
+      return `REQ-${100 + idx}`
+    }
+    return 'REQ'
+  }
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [tasksRes, projectsRes] = await Promise.all([
+      const [tasksRes, projectsRes, reqsRes] = await Promise.all([
         api.get('/tasks'),
         api.get('/projects'),
+        api.get('/requirements'),
       ])
       setTasks(tasksRes.data.data)
       setProjects(projectsRes.data.data)
+      setRequirements(reqsRes.data.data)
       if (projectsRes.data.data.length > 0) {
         setProjectId(projectsRes.data.data[0].id)
       }
@@ -51,8 +94,9 @@ export default function Tasks() {
   const resetForm = () => {
     setTitle('')
     setDescription('')
-    setStatus('Pending')
+    setStatus('TODO')
     setAssignee('')
+    setRequirementId('')
     setEditingId(null)
   }
 
@@ -69,6 +113,7 @@ export default function Tasks() {
         status,
         assignee: assignee || user?.name || 'Unassigned',
         projectId,
+        requirementId: requirementId || null,
       })
       toast.success('Task created successfully')
       setIsAddModalOpen(false)
@@ -90,6 +135,7 @@ export default function Tasks() {
         status,
         assignee,
         projectId,
+        requirementId: requirementId || null,
       })
       toast.success('Task updated successfully')
       setIsEditModalOpen(false)
@@ -101,7 +147,7 @@ export default function Tasks() {
     }
   }
 
-  const handleStatusChange = async (task: any, newStatus: 'Pending' | 'In Progress' | 'Completed') => {
+  const handleStatusChange = async (task: any, newStatus: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'FINISHED') => {
     try {
       await api.put(`/tasks/${task.id}`, {
         title: task.title,
@@ -109,8 +155,9 @@ export default function Tasks() {
         status: newStatus,
         assignee: task.assignee,
         projectId: task.projectId,
+        requirementId: task.requirementId || null,
       })
-      toast.success(`Task status updated to ${newStatus}`)
+      toast.success(`Task status updated to ${getStatusLabel(newStatus)}`)
       fetchData()
     } catch (err: any) {
       toast.error('Failed to change task status')
@@ -132,26 +179,29 @@ export default function Tasks() {
     setEditingId(t.id)
     setTitle(t.title)
     setDescription(t.description || '')
-    setStatus(t.status || 'Pending')
+    setStatus(normalizeStatus(t.status))
     setAssignee(t.assignee || '')
     setProjectId(t.projectId)
+    setRequirementId(t.requirementId || '')
     setIsEditModalOpen(true)
   }
 
-  const getTasksByStatus = (st: 'Pending' | 'In Progress' | 'Completed') => {
-    return tasks.filter((t) => t.status === st)
+  const getTasksByStatus = (st: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'FINISHED') => {
+    return tasks.filter((t) => normalizeStatus(t.status) === st)
   }
 
-  const statuses: ('Pending' | 'In Progress' | 'Completed')[] = ['Pending', 'In Progress', 'Completed']
+  const statuses: ('TODO' | 'IN_PROGRESS' | 'REVIEW' | 'FINISHED')[] = ['TODO', 'IN_PROGRESS', 'REVIEW', 'FINISHED']
+
+  const projectRequirements = requirements.filter((r) => r.projectId === projectId)
 
   return (
     <div className="space-y-6">
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Workflow Tasks</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Workflow Board</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Monitor workflow states: Pending → In Progress → Completed.
+            Monitor deliverables: To Do → In Progress → In Review → Finished. Drag and drop to update.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -183,77 +233,107 @@ export default function Tasks() {
           Loading task details...
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {statuses.map((st) => {
             const list = getTasksByStatus(st)
             return (
-              <div key={st} className="rounded-2xl border border-border bg-card/40 p-4 flex flex-col min-h-[400px]">
+              <div
+                key={st}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={async (e) => {
+                  const taskId = e.dataTransfer.getData('text/plain')
+                  const targetTask = tasks.find((t) => t.id === taskId)
+                  if (targetTask && normalizeStatus(targetTask.status) !== st) {
+                    await handleStatusChange(targetTask, st)
+                  }
+                }}
+                className="rounded-2xl border border-border bg-card/40 p-4 flex flex-col min-h-[450px] transition-colors duration-200"
+              >
                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-border/40">
                   <h3 className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <span className={`h-2 w-2 rounded-full ${
-                      st === 'Pending' ? 'bg-neutral-500' :
-                      st === 'In Progress' ? 'bg-sky-500' :
+                      st === 'TODO' ? 'bg-neutral-500' :
+                      st === 'IN_PROGRESS' ? 'bg-sky-500' :
+                      st === 'REVIEW' ? 'bg-amber-500' :
                       'bg-emerald-500'
                     }`} />
-                    <span>{st}</span>
+                    <span>{getStatusLabel(st)}</span>
                   </h3>
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-foreground">
                     {list.length}
                   </span>
                 </div>
 
-                <div className="space-y-4 flex-1 overflow-y-auto">
+                <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar">
                   {list.length === 0 ? (
-                    <div className="py-8 text-center text-[11px] text-muted-foreground">
-                      No tasks in this list
+                    <div className="py-12 text-center text-[10px] text-muted-foreground border border-dashed border-border/40 rounded-xl">
+                      Drop tasks here
                     </div>
                   ) : (
                     list.map((task) => (
-                      <div key={task.id} className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-all space-y-3">
+                      <div
+                        key={task.id}
+                        draggable="true"
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', task.id)
+                        }}
+                        className="group relative rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all space-y-3 cursor-grab active:cursor-grabbing"
+                      >
                         <div>
-                          <span className="text-[9px] font-bold text-primary block uppercase tracking-wider line-clamp-1 mb-1">
-                            {task.project?.name || 'Unknown Project'}
-                          </span>
-                          <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-snug">{task.title}</h4>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-[9px] font-bold text-primary block uppercase tracking-wider truncate max-w-[120px]">
+                              {task.project?.name || 'Unknown Project'}
+                            </span>
+                            {task.requirement && (
+                              <span
+                                className="rounded bg-primary/10 px-1 py-0.5 text-[8px] font-bold text-primary border border-primary/20 cursor-help"
+                                title={`Linked Requirement: ${task.requirement.title}`}
+                              >
+                                {getRequirementLabel(task.requirementId || task.requirement.id)}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-xs font-bold text-foreground leading-snug break-words">{task.title}</h4>
                           {task.description && (
-                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1">{task.description}</p>
+                            <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1">{task.description}</p>
                           )}
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                          <span className="text-[10px] font-semibold text-muted-foreground leading-none">
-                            Assignee: <span className="text-foreground font-bold">{task.assignee}</span>
+                          <span className="text-[9px] font-semibold text-muted-foreground leading-none">
+                            By: <span className="text-foreground font-bold">{task.assignee || 'Unassigned'}</span>
                           </span>
 
                           <div className="flex items-center gap-1.5">
                             {/* Simple Status Shift Select */}
                             <select
-                              value={task.status}
+                              value={normalizeStatus(task.status)}
                               onChange={(e) => handleStatusChange(task, e.target.value as any)}
-                              className="bg-secondary text-[10px] font-bold text-foreground rounded-lg px-2 py-1 border border-border focus:outline-none cursor-pointer"
+                              className="bg-secondary text-[9px] font-bold text-foreground rounded-lg px-1.5 py-0.5 border border-border focus:outline-none cursor-pointer"
                             >
-                              <option value="Pending">Pending</option>
-                              <option value="In Progress">In Progress</option>
-                              <option value="Completed">Completed</option>
+                              <option value="TODO">To Do</option>
+                              <option value="IN_PROGRESS">In Progress</option>
+                              <option value="REVIEW">In Review</option>
+                              <option value="FINISHED">Finished</option>
                             </select>
 
                             {canManage && (
-                              <>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
                                 <button
                                   onClick={() => openEditModal(task)}
                                   className="p-1 rounded text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
                                   title="Edit Task"
                                 >
-                                  <Edit2 size={11} />
+                                  <Edit2 size={10} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteTask(task.id)}
                                   className="p-1 rounded text-rose-500 hover:bg-rose-500/10 transition-all"
                                   title="Delete Task"
                                 >
-                                  <Trash2 size={11} />
+                                  <Trash2 size={10} />
                                 </button>
-                              </>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -305,17 +385,35 @@ export default function Tasks() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Associate Project</label>
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Associate Project</label>
+                  <select
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Link Requirement</label>
+                  <select
+                    value={requirementId}
+                    onChange={(e) => setRequirementId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    <option value="">None (Unlinked)</option>
+                    {projectRequirements.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {getRequirementLabel(r.id)}: {r.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -337,9 +435,10 @@ export default function Tasks() {
                     onChange={(e) => setStatus(e.target.value as any)}
                     className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
                   >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
+                    <option value="TODO">To Do</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="REVIEW">In Review</option>
+                    <option value="FINISHED">Finished</option>
                   </select>
                 </div>
               </div>
@@ -391,17 +490,35 @@ export default function Tasks() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Associate Project</label>
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Associate Project</label>
+                  <select
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Link Requirement</label>
+                  <select
+                    value={requirementId}
+                    onChange={(e) => setRequirementId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    <option value="">None (Unlinked)</option>
+                    {projectRequirements.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {getRequirementLabel(r.id)}: {r.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -423,9 +540,10 @@ export default function Tasks() {
                     onChange={(e) => setStatus(e.target.value as any)}
                     className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
                   >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
+                    <option value="TODO">To Do</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="REVIEW">In Review</option>
+                    <option value="FINISHED">Finished</option>
                   </select>
                 </div>
               </div>

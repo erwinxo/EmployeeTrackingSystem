@@ -29,9 +29,27 @@ export default function Reports() {
     fetchData()
   }, [])
 
-  const handleExport = (format: 'PDF' | 'XLSX') => {
+  const handleExport = async (format: 'PDF' | 'XLSX') => {
+    const fileFormat = format === 'PDF' ? 'pdf' : 'csv'
+    const fileExt = format === 'PDF' ? 'pdf' : 'csv'
+
     toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
+      (async () => {
+        const response = await api.get(`/reports/export?format=${fileFormat}`, {
+          responseType: 'blob',
+        })
+        const blob = new Blob([response.data], {
+          type: format === 'PDF' ? 'application/pdf' : 'text/csv;charset=utf-8',
+        })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `ets_workspace_report_${Date.now()}.${fileExt}`)
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(url)
+      })(),
       {
         loading: `Formatting workspace data to ${format}...`,
         success: `Analytical report exported successfully as ${format}!`,

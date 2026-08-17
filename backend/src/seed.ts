@@ -43,7 +43,7 @@ async function main() {
   });
 
   // 4. Seed Sample Requirements
-  await prisma.clientRequirement.create({
+  const req1 = await prisma.clientRequirement.create({
     data: {
       title: 'FR-01: User Profile Settings Panel',
       description: 'Allow staff users to edit names, emails, and passwords.',
@@ -52,7 +52,7 @@ async function main() {
     },
   });
 
-  await prisma.clientRequirement.create({
+  const req2 = await prisma.clientRequirement.create({
     data: {
       title: 'FR-02: Multi-Factor Authentication',
       description: 'Mandatory Google Authenticator login step for Admins.',
@@ -66,9 +66,10 @@ async function main() {
     data: {
       title: 'Design CSS Glassmorphism login layouts',
       description: 'Create modern dark mode mockup cards.',
-      status: 'Completed',
+      status: 'FINISHED',
       assignee: admin.fullName,
       projectId: project1.id,
+      requirementId: req1.id,
     },
   });
 
@@ -76,9 +77,10 @@ async function main() {
     data: {
       title: 'Setup Cognito user pool credentials',
       description: 'Configure AWS client credentials and callback URLs.',
-      status: 'In Progress',
+      status: 'IN_PROGRESS',
       assignee: admin.fullName,
       projectId: project2.id,
+      requirementId: req2.id,
     },
   });
 
@@ -86,9 +88,10 @@ async function main() {
     data: {
       title: 'Compile initial requirements checklist',
       description: 'Formulate client-specific compliance points.',
-      status: 'Pending',
+      status: 'TODO',
       assignee: admin.fullName,
       projectId: project1.id,
+      requirementId: req1.id,
     },
   });
 

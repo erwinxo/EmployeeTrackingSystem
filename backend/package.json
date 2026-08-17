@@ -24,6 +24,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.17.0",
+    "@types/pdfkit": "^0.17.6",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.3",
     "dotenv": "^16.4.2",
@@ -33,6 +34,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.5.0",
     "morgan": "^1.10.0",
+    "pdfkit": "^0.19.1",
     "swagger-jsdoc": "^6.0.0",
     "swagger-ui-express": "^4.1.8",
     "winston": "^3.0.0"
