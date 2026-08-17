@@ -90,7 +90,7 @@ export function Navbar({ visible, setMobileOpen }: NavbarProps) {
         {/* User Info Avatar */}
         <div className="flex items-center gap-2 pl-2 border-l border-border">
           <img
-            src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}
+            src={user.avatar || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238696a0'><rect width='24' height='24' fill='%23e9edef'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>"}
             alt={user.name}
             className="h-8 w-8 rounded-full object-cover border border-border"
           />
