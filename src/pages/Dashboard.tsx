@@ -7,7 +7,6 @@ import {
   Users,
   Clock,
   CheckCircle2,
-  AlertCircle,
   TrendingUp,
   ArrowUpRight,
   Plus,
@@ -22,8 +21,79 @@ import api from '../services/api'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 
+const computeActiveDurations = (todayLogs: any[]) => {
+  let workMs = 0;
+  let breakMs = 0;
+  let lunchMs = 0;
+  let totalElapsedMs = 0;
+
+  if (todayLogs.length === 0) {
+    return { workHours: 0, breakHours: 0, lunchHours: 0, totalHours: 0 };
+  }
+
+  // Sort logs by timestamp ascending
+  const sortedLogs = [...todayLogs].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  const firstCheckIn = new Date(sortedLogs[0].timestamp);
+  let lastEventTime = firstCheckIn;
+  let previousState: 'OFF_WORK' | 'ACTIVE' | 'BREAK' | 'LUNCH' = 'OFF_WORK';
+
+  sortedLogs.forEach((log) => {
+    const logTime = new Date(log.timestamp);
+    const diff = logTime.getTime() - lastEventTime.getTime();
+
+    if (previousState === 'ACTIVE') {
+      workMs += diff;
+    } else if (previousState === 'BREAK') {
+      breakMs += diff;
+    } else if (previousState === 'LUNCH') {
+      lunchMs += diff;
+    }
+
+    // Transition state
+    if (log.type === 'CHECK_IN' || log.type === 'BREAK_END' || log.type === 'LUNCH_END') {
+      previousState = 'ACTIVE';
+    } else if (log.type === 'CHECK_OUT') {
+      previousState = 'OFF_WORK';
+    } else if (log.type === 'BREAK_START') {
+      previousState = 'BREAK';
+    } else if (log.type === 'LUNCH_START') {
+      previousState = 'LUNCH';
+    }
+
+    lastEventTime = logTime;
+  });
+
+  // Add active ticking time up to now
+  const now = new Date();
+  if (previousState !== 'OFF_WORK') {
+    const diff = now.getTime() - lastEventTime.getTime();
+    if (previousState === 'ACTIVE') {
+      workMs += diff;
+    } else if (previousState === 'BREAK') {
+      breakMs += diff;
+    } else if (previousState === 'LUNCH') {
+      lunchMs += diff;
+    }
+    
+    totalElapsedMs = now.getTime() - firstCheckIn.getTime();
+  } else {
+    const lastCheckOut = new Date(sortedLogs[sortedLogs.length - 1].timestamp);
+    totalElapsedMs = lastCheckOut.getTime() - firstCheckIn.getTime();
+  }
+
+  return {
+    workHours: Math.max(0, workMs / 1000 / 3600),
+    breakHours: Math.max(0, breakMs / 1000 / 3600),
+    lunchHours: Math.max(0, lunchMs / 1000 / 3600),
+    totalHours: Math.max(0, totalElapsedMs / 1000 / 3600),
+  };
+};
+
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
 
   // Live state
@@ -32,6 +102,55 @@ export default function Dashboard() {
   const [requirements, setRequirements] = useState<any[]>([])
   const [usersCount, setUsersCount] = useState(1)
   const [, setLoading] = useState(false)
+
+  // Status & Time Logging State
+  const [todayLogs, setTodayLogs] = useState<any[]>([])
+  const [currentStatus, setCurrentStatus] = useState<string>(user?.currentStatus || 'OFF_WORK')
+  const [durations, setDurations] = useState({
+    workHours: 0,
+    breakHours: 0,
+    lunchHours: 0,
+    totalHours: 0,
+  })
+
+  // Managers view live states
+  const [teamStatuses, setTeamStatuses] = useState<any[]>([])
+  const [teamFeed, setTeamFeed] = useState<any[]>([])
+
+  const fetchTodayLogs = async () => {
+    try {
+      const res = await api.get('/time-logs/today')
+      setTodayLogs(res.data.data)
+    } catch (err) {
+      console.error('Failed to fetch today time logs:', err)
+    }
+  }
+
+  const fetchTeamActivity = async () => {
+    if (user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'PROJECT_MANAGER') {
+      try {
+        const [statusRes, feedRes] = await Promise.all([
+          api.get('/time-logs/users'),
+          api.get('/time-logs/feed'),
+        ])
+        setTeamStatuses(statusRes.data.data)
+        setTeamFeed(feedRes.data.data)
+      } catch (err) {
+        console.error('Failed to fetch team status/feed:', err)
+      }
+    }
+  }
+
+  const syncUserStatus = async () => {
+    try {
+      const res = await api.get('/users/profile')
+      const dbUser = res.data.data
+      setCurrentStatus(dbUser.currentStatus || 'OFF_WORK')
+      updateUser({ currentStatus: dbUser.currentStatus || 'OFF_WORK' })
+    } catch (err) {
+      console.error('Failed to sync user status on mount:', err)
+    }
+  }
 
   const fetchDashboardData = async () => {
     setLoading(true)
@@ -45,12 +164,11 @@ export default function Dashboard() {
       setTasks(tasksRes.data.data)
       setRequirements(reqsRes.data.data)
 
-      // Fetch users count only if ADMIN
       if (user?.role === 'ADMIN') {
         const usersRes = await api.get('/users')
         setUsersCount(usersRes.data.data.length)
       } else {
-        setUsersCount(5) // default mockup fallback for non-admins
+        setUsersCount(5)
       }
     } catch (error) {
       console.error('Error fetching dashboard details:', error)
@@ -63,8 +181,48 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchDashboardData()
+      fetchTodayLogs()
+      fetchTeamActivity()
+      syncUserStatus()
     }
   }, [user])
+
+  useEffect(() => {
+    // Interval to calculate duration in real-time
+    const interval = setInterval(() => {
+      const currentDurations = computeActiveDurations(todayLogs)
+      setDurations(currentDurations)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [todayLogs, currentStatus])
+
+  const handleStatusChange = async (type: string) => {
+    try {
+      const res = await api.post('/time-logs', { type })
+      const newStat = res.data.data.status
+      setCurrentStatus(newStat)
+      updateUser({ currentStatus: newStat })
+      toast.success(`Clock state updated to ${type.replace('_', ' ')}`)
+      await fetchTodayLogs()
+      await fetchTeamActivity()
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to update clock status'
+      toast.error(msg)
+    }
+  }
+
+  const formatDuration = (hoursDecimal: number) => {
+    const totalSeconds = Math.round(hoursDecimal * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return [
+      h.toString().padStart(2, '0'),
+      m.toString().padStart(2, '0'),
+      s.toString().padStart(2, '0'),
+    ].join(':');
+  };
 
   // Weekly Activity Data (5 Weeks)
   const weeklyData = [
@@ -130,8 +288,32 @@ export default function Dashboard() {
     }
   ]
 
+  // Overriding today's data in the current week representation
+  const dayOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const todayDayName = dayOfWeekNames[new Date().getDay()];
+
+  const adjustedWeeklyData = weeklyData.map((week, idx) => {
+    if (idx === 0) { // Current Week
+      return {
+        ...week,
+        days: week.days.map((d) => {
+          if (d.day === todayDayName) {
+            return {
+              ...d,
+              work: durations.workHours,
+              breaks: durations.breakHours,
+              lunch: durations.lunchHours,
+            };
+          }
+          return d;
+        }),
+      };
+    }
+    return week;
+  });
+
   // Aggregated weekly data
-  const aggregatedWeeks = weeklyData.map((week, idx) => {
+  const aggregatedWeeks = adjustedWeeklyData.map((week, idx) => {
     let totalWork = 0
     let totalBreaks = 0
     let totalLunch = 0
@@ -158,26 +340,26 @@ export default function Dashboard() {
       case 'ADMIN':
         return [
           { name: 'Active Personnel', value: usersCount.toString(), change: 'Live Workspace', desc: 'Active security credentials', icon: Users, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Managed Projects', value: projects.length.toString(), change: 'Database Active', desc: 'Tracking active client targets', icon: FolderGit2, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Client Scope Items', value: requirements.length.toString(), change: 'Traced Triggers', desc: 'Scope items in requirement log', icon: ClipboardList, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Task Backlog Size', value: tasks.length.toString(), change: 'Workflow Size', desc: 'Tasks currently on board', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Linked Milestones', value: projects.length.toString(), change: '+12% increase', desc: 'Underway scoped projects', icon: FolderGit2, color: 'text-primary bg-primary/10 border-primary/20' },
+          { name: 'Tasks Completed', value: tasks.filter(t => t.status === 'Completed' || t.status === 'FINISHED').length.toString(), change: `${tasks.length} total tasks`, desc: 'Closed workspace cards', icon: CheckSquare, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+          { name: 'Project Scope Traces', value: requirements.length.toString(), change: '100% coverage', desc: 'Traceability linked items', icon: ClipboardList, color: 'text-violet-500 bg-violet-500/10 border-violet-500/20' },
         ]
       case 'MANAGER':
       case 'PROJECT_MANAGER':
         return [
-          { name: 'Active Projects', value: projects.length.toString(), change: 'Database Tracked', desc: 'Assigned system allocations', icon: FolderGit2, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Scope Requirements', value: requirements.length.toString(), change: 'Traced Items', desc: 'Specifications linked to project', icon: ClipboardList, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Allocated Tasks', value: tasks.length.toString(), change: 'Workflow Active', desc: 'Tasks in tracking cycle', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Awaiting Actions', value: tasks.filter(t => t.status === 'In Progress').length.toString(), change: 'Focus Tasks', desc: 'Items currently in progress', icon: Clock, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'Project Registry', value: projects.length.toString(), change: 'Manager View', desc: 'Active assigned scopes', icon: FolderGit2, color: 'text-primary bg-primary/10 border-primary/20' },
+          { name: 'Assigned Traces', value: requirements.length.toString(), change: 'Verification tier', desc: 'Client requirements mapped', icon: ClipboardList, color: 'text-violet-500 bg-violet-500/10 border-violet-500/20' },
+          { name: 'Tasks Under Review', value: tasks.filter(t => t.status === 'REVIEW').length.toString(), change: 'Awaiting Signoff', desc: 'Pending manager approval', icon: CheckCircle2, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+          { name: 'Completed Scope Tasks', value: tasks.filter(t => t.status === 'Completed' || t.status === 'FINISHED').length.toString(), change: `${tasks.length} tasks allocated`, desc: 'Finished scope targets', icon: CheckSquare, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
         ]
       case 'EMPLOYEE':
       default:
         const myTasks = tasks.filter(t => t.assignee === user.name)
         return [
-          { name: 'Your Active Tasks', value: myTasks.length.toString(), change: 'Assigned to you', desc: 'Allocated tasks in workspace', icon: CheckSquare, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'In Progress Tasks', value: myTasks.filter(t => t.status === 'In Progress').length.toString(), change: 'Active focus', desc: 'Working on these currently', icon: Clock, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Pending Handover', value: myTasks.filter(t => t.status === 'Pending').length.toString(), change: 'Awaiting kickoff', desc: 'Unstarted tasks queue', icon: AlertCircle, color: 'text-foreground bg-secondary border-border/20' },
-          { name: 'Tasks Completed', value: myTasks.filter(t => t.status === 'Completed').length.toString(), change: 'Work done', desc: 'Finished allocations list', icon: CheckCircle2, color: 'text-foreground bg-secondary border-border/20' },
+          { name: 'My Active Tasks', value: myTasks.filter(t => t.status !== 'Completed' && t.status !== 'FINISHED').length.toString(), change: 'Action Required', desc: 'Pending developer logs', icon: ClipboardList, color: 'text-primary bg-primary/10 border-primary/20' },
+          { name: 'Completed Tasks', value: myTasks.filter(t => t.status === 'Completed' || t.status === 'FINISHED').length.toString(), change: 'Work Verified', desc: 'Logged tasks finished', icon: CheckSquare, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+          { name: 'Total Allocated Hours', value: durations.workHours.toFixed(1) + 'h', change: 'Logged today', desc: 'Accumulated active shifts', icon: Clock, color: 'text-violet-500 bg-violet-500/10 border-violet-500/20' },
+          { name: 'Active Workspace Cards', value: tasks.length.toString(), change: 'Global tasks list', desc: 'Total tracked team items', icon: FolderGit2, color: 'text-neutral-500 bg-secondary border-border/20' },
         ]
     }
   }
@@ -185,23 +367,22 @@ export default function Dashboard() {
   const stats = getStats()
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Premium Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8 shadow-xl">
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-foreground/5 blur-3xl" />
-        
-        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary border border-border px-3 py-1 text-xs font-semibold text-foreground">
-              <Sparkles size={12} />
-              <span>Workspace Sync Ready</span>
+    <div className="space-y-6">
+      {/* Welcome Banner */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm overflow-hidden relative">
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/3 h-[250px] w-[250px] rounded-full bg-primary/5 blur-[50px] pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider mb-2">
+              <Sparkles size={10} />
+              <span>Workspace Portal</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
               Hello, {user.name}
             </h1>
-            <p className="text-muted-foreground text-sm max-w-xl">
-              Welcome to the workspace. You are currently viewed with{' '}
-              <span className="font-semibold text-primary">{user.role}</span> permissions. Here is the analytical status for project tracking.
+            <p className="text-muted-foreground text-sm max-w-xl mt-1">
+              Welcome back to ThinkCove. You are authenticated with{' '}
+              <span className="font-semibold text-primary">{user.role}</span> privileges. Below are your live shift timers and milestone traces.
             </p>
           </div>
 
@@ -215,6 +396,111 @@ export default function Dashboard() {
               <span>Manage Tasks</span>
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* Check-in Widget */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
+        <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/3 h-[180px] w-[180px] rounded-full bg-secondary/20 blur-[40px] pointer-events-none" />
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="relative">
+            <Clock size={32} className="text-primary" />
+            <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card ${
+              currentStatus === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' :
+              currentStatus === 'BREAK' ? 'bg-rose-500 animate-pulse' :
+              currentStatus === 'LUNCH' ? 'bg-amber-500 animate-pulse' :
+              'bg-neutral-500'
+            }`} />
+          </div>
+          <div>
+            <h2 className="text-md font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span>Shift Status:</span>
+              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase border ${
+                currentStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                currentStatus === 'BREAK' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                currentStatus === 'LUNCH' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                'bg-neutral-500/10 text-muted-foreground border-border'
+              }`}>
+                {currentStatus.replace('_', ' ')}
+              </span>
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {currentStatus === 'OFF_WORK' ? 'You are currently off-duty. Clock in to begin your day.' : 'Your working/break metrics are accumulating in real-time.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Timers display grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-secondary/30 p-4 rounded-xl border border-border/40 relative z-10 w-full lg:w-auto">
+          <div className="text-center sm:text-left min-w-[90px]">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Active Work</span>
+            <span className="text-sm font-black text-foreground font-mono">{formatDuration(durations.workHours)}</span>
+          </div>
+          <div className="text-center sm:text-left min-w-[90px]">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Short Break</span>
+            <span className="text-sm font-black text-rose-500 font-mono">{formatDuration(durations.breakHours)}</span>
+          </div>
+          <div className="text-center sm:text-left min-w-[90px]">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Lunch Break</span>
+            <span className="text-sm font-black text-amber-500 font-mono">{formatDuration(durations.lunchHours)}</span>
+          </div>
+          <div className="text-center sm:text-left min-w-[90px]">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Total Day</span>
+            <span className="text-sm font-black text-primary font-mono">{formatDuration(durations.totalHours)}</span>
+          </div>
+        </div>
+
+        {/* Actions buttons */}
+        <div className="flex flex-wrap gap-2.5 relative z-10">
+          {currentStatus === 'OFF_WORK' && (
+            <button
+              onClick={() => handleStatusChange('CHECK_IN')}
+              className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold shadow-lg shadow-primary/20 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+            >
+              Check In Shift
+            </button>
+          )}
+
+          {currentStatus === 'ACTIVE' && (
+            <>
+              <button
+                onClick={() => handleStatusChange('BREAK_START')}
+                className="rounded-xl border border-border hover:bg-secondary text-foreground px-3.5 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              >
+                Start Break
+              </button>
+              <button
+                onClick={() => handleStatusChange('LUNCH_START')}
+                className="rounded-xl border border-border hover:bg-secondary text-foreground px-3.5 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              >
+                Go to Lunch
+              </button>
+              <button
+                onClick={() => handleStatusChange('CHECK_OUT')}
+                className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-rose-500/25 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              >
+                Check Out Shift
+              </button>
+            </>
+          )}
+
+          {currentStatus === 'BREAK' && (
+            <button
+              onClick={() => handleStatusChange('BREAK_END')}
+              className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+            >
+              Resume Work
+            </button>
+          )}
+
+          {currentStatus === 'LUNCH' && (
+            <button
+              onClick={() => handleStatusChange('LUNCH_END')}
+              className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+            >
+              Resume Work
+            </button>
+          )}
         </div>
       </div>
 
@@ -288,51 +574,59 @@ export default function Dashboard() {
               <tbody className="divide-y divide-border/60 text-xs">
                 {(() => {
                   const filtered = tasks.filter(
-                    (task) =>
-                      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      (task.project?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+                    (t) =>
+                      t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (t.description && t.description.toLowerCase().includes(searchTerm.toLowerCase()))
                   )
-
                   if (filtered.length === 0) {
                     return (
                       <tr>
-                        <td colSpan={5} className="py-20 text-center">
-                          <div className="flex flex-col items-center justify-center gap-2">
-                            <span className="text-sm font-bold tracking-tight text-muted-foreground/30 uppercase">No Tasks Found</span>
-                            <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
-                              We couldn't find any tasks matching "{searchTerm}". Try adding some workflow tasks.
-                            </p>
-                          </div>
+                        <td colSpan={5} className="py-8 text-center text-muted-foreground italic">
+                          No matching tasks found.
                         </td>
                       </tr>
                     )
                   }
-
-                  return filtered.map((task, idx) => (
-                    <tr key={task.id} className="group hover:bg-accent/30 transition-colors">
+                  return filtered.map((task) => (
+                    <tr key={task.id} className="hover:bg-secondary/10 transition-colors">
                       <td className="py-3.5 pr-4">
-                        <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{task.title}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">TSK-{100 + idx}</div>
+                        <div className="font-bold text-foreground truncate max-w-[180px]">{task.title}</div>
+                        {task.requirement && (
+                          <span className="inline-block text-[9px] font-bold text-primary uppercase mt-0.5">
+                            REQ: {task.requirement.title.slice(0, 20)}...
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3.5 pr-4 text-muted-foreground font-medium">{task.project?.name || 'Unassigned'}</td>
+                      <td className="py-3.5 pr-4 text-muted-foreground truncate max-w-[120px]">
+                        {task.project?.name || 'No Project'}
+                      </td>
                       <td className="py-3.5 pr-4">
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold tracking-wider border uppercase bg-secondary text-foreground">
-                          Medium
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[9px] font-bold border uppercase',
+                            task.priority === 'HIGH'
+                              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                              : task.priority === 'MEDIUM'
+                                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                : 'bg-neutral-500/10 text-muted-foreground border-border'
+                          )}
+                        >
+                          {task.priority}
                         </span>
                       </td>
                       <td className="py-3.5 pr-4">
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold border',
-                            task.status === 'Completed'
+                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold border uppercase',
+                            task.status === 'Completed' || task.status === 'FINISHED'
                               ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                              : task.status === 'In Progress'
-                              ? 'bg-sky-500/10 text-sky-500 border-sky-500/20'
-                              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                              : task.status === 'In Progress' || task.status === 'IN_PROGRESS'
+                                ? 'bg-sky-500/10 text-sky-500 border-sky-500/20'
+                                : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                           )}
                         >
-                          <span className={`h-1 w-1 rounded-full ${
-                            task.status === 'Completed' ? 'bg-emerald-500' : task.status === 'In Progress' ? 'bg-sky-500' : 'bg-amber-500'
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            task.status === 'Completed' || task.status === 'FINISHED' ? 'bg-emerald-500' : task.status === 'In Progress' || task.status === 'IN_PROGRESS' ? 'bg-sky-500' : 'bg-amber-500'
                           }`} />
                           {task.status}
                         </span>
@@ -452,6 +746,111 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Team Status and Activity Monitor for Managers */}
+      {(user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'PROJECT_MANAGER') && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Team Status Grid */}
+          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col h-[400px]">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight">Team Attendance Monitor</h2>
+                <p className="text-xs text-muted-foreground">Real-time working/break status of all workspace staff.</p>
+              </div>
+              <span className="text-[10px] font-extrabold text-primary bg-primary/10 border border-primary/20 rounded px-2.5 py-0.5 select-none uppercase tracking-wide">
+                Live Status
+              </span>
+            </div>
+
+            <div className="overflow-x-auto overflow-y-auto flex-1 pr-1 custom-scrollbar">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <th className="pb-3 pr-4">Staff Name</th>
+                    <th className="pb-3 pr-4">Department</th>
+                    <th className="pb-3 pr-4">Role Group</th>
+                    <th className="pb-3 text-right">Current Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60 text-xs">
+                  {teamStatuses.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-muted-foreground italic">No team member logs detected.</td>
+                    </tr>
+                  ) : (
+                    teamStatuses.map((member) => (
+                      <tr key={member.id} className="hover:bg-secondary/10 transition-colors">
+                        <td className="py-3 pr-4 font-bold text-foreground">{member.fullName}</td>
+                        <td className="py-3 pr-4 text-muted-foreground">{member.department || 'General'}</td>
+                        <td className="py-3 pr-4 font-medium uppercase text-[10px] tracking-wide text-muted-foreground">
+                          {member.role.replace('_', ' ')}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold border uppercase ${
+                            member.currentStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                            member.currentStatus === 'BREAK' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                            member.currentStatus === 'LUNCH' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                            'bg-neutral-500/10 text-muted-foreground border-border'
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${
+                              member.currentStatus === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' :
+                              member.currentStatus === 'BREAK' ? 'bg-rose-500 animate-pulse' :
+                              member.currentStatus === 'LUNCH' ? 'bg-amber-500 animate-pulse' :
+                              'bg-neutral-400'
+                            }`} />
+                            {member.currentStatus.replace('_', ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Real-time feed of today's activities */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col h-[400px]">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">Shift Activity Feed</h2>
+              <p className="text-xs text-muted-foreground mb-4">Chronological logs of today's check-ins and breaks.</p>
+            </div>
+            
+            <div className="overflow-y-auto flex-1 pr-1 custom-scrollbar space-y-4">
+              {teamFeed.length === 0 ? (
+                <div className="text-xs text-muted-foreground py-16 text-center italic">No activity registered today.</div>
+              ) : (
+                teamFeed.map((log) => (
+                  <div key={log.id} className="flex gap-3 items-start relative pb-3 border-l border-border/80 pl-4 ml-2 last:border-0 last:pb-0">
+                    <div className={`absolute left-[-17px] top-1 h-2 w-2 rounded-full ring-4 ring-card ${
+                      log.type === 'CHECK_IN' ? 'bg-emerald-500' :
+                      log.type === 'CHECK_OUT' ? 'bg-neutral-500' :
+                      log.type.includes('BREAK') ? 'bg-rose-500' :
+                      'bg-amber-500'
+                    }`} />
+                    <div className="text-xs">
+                      <p className="font-semibold text-foreground leading-snug">
+                        {log.user?.fullName || 'Someone'}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {log.type === 'CHECK_IN' ? 'Checked in shift' :
+                         log.type === 'CHECK_OUT' ? 'Checked out shift' :
+                         log.type === 'BREAK_START' ? 'Went on a break' :
+                         log.type === 'BREAK_END' ? 'Resumed work from break' :
+                         log.type === 'LUNCH_START' ? 'Went to lunch' :
+                         'Resumed work from lunch'}
+                      </p>
+                      <span className="text-[9px] text-muted-foreground/60 mt-1 block">
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Analytics, Activity Logs & Profile Details */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Right 1 Column: Active Projects Progress */}
@@ -471,7 +870,7 @@ export default function Dashboard() {
               ) : (
                 projects.slice(0, 4).map((project) => {
                   const totalTasks = project.tasks?.length || 0
-                  const completedTasks = project.tasks?.filter((t: any) => t.status === 'Completed').length || 0
+                  const completedTasks = project.tasks?.filter((t: any) => t.status === 'Completed' || t.status === 'FINISHED').length || 0
                   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
                   return (

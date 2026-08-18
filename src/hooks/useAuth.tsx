@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: dbUser.fullName || dbUser.name || 'Anonymous User',
         email: dbUser.email,
         role: (dbUser.role || 'EMPLOYEE').toUpperCase() as UserRole,
+        currentStatus: dbUser.currentStatus || 'OFF_WORK',
       }
 
       setUser(frontendUser)
