@@ -43,6 +43,7 @@ export class UserController {
             role: true,
             department: true,
             isActive: true,
+            projectId: true,
             createdAt: true,
             updatedAt: true
           }
@@ -67,6 +68,7 @@ export class UserController {
         password: hashedPassword,
         role: role || 'EMPLOYEE',
         department,
+        projectId: (role === 'EMPLOYEE' || role === 'PROJECT_MANAGER') ? projectId || null : null,
       });
 
       // Update task assignees (only if role is EMPLOYEE)
@@ -113,6 +115,7 @@ export class UserController {
         role,
         isActive,
         department,
+        projectId: (role === 'EMPLOYEE' || role === 'PROJECT_MANAGER') ? projectId || null : null,
       });
 
       // Assign new tasks (only if role is EMPLOYEE)

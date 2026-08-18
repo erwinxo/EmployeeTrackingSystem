@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export class UserRepository {
-  async createUser(data: { fullName: string; email: string; password: string; role: string; department?: string }) {
+  async createUser(data: { fullName: string; email: string; password: string; role: string; department?: string; projectId?: string | null }) {
     return prisma.user.create({ data });
   }
 
@@ -21,6 +21,7 @@ export class UserRepository {
         role: true,
         department: true,
         isActive: true,
+        projectId: true,
         createdAt: true,
         updatedAt: true
       }
@@ -36,6 +37,7 @@ export class UserRepository {
         role: true,
         department: true,
         isActive: true,
+        projectId: true,
         createdAt: true,
         updatedAt: true
       }
@@ -53,6 +55,7 @@ export class UserRepository {
         role: true,
         department: true,
         isActive: true,
+        projectId: true,
         createdAt: true,
         updatedAt: true
       }

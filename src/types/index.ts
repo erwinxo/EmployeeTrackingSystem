@@ -10,6 +10,7 @@ export interface User {
   avatar?: string
   department?: string
   managerId?: string
+  projectId?: string
   currentStatus?: string
   createdAt?: string
 }

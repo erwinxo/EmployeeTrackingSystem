@@ -181,7 +181,7 @@ export default function Employees() {
     setSelectedTaskIds(userTasks)
     setTaskSearchTerm('')
     const pmProject = projects.find(p => p.projectManagerId === emp.id)
-    setSelectedProjectId(pmProject ? pmProject.id : '')
+    setSelectedProjectId(emp.projectId || (pmProject ? pmProject.id : ''))
     setIsEditModalOpen(true)
   }
 
@@ -521,61 +521,89 @@ export default function Employees() {
                 </div>
               )}
 
-              {/* Task Assignment */}
+              {/* Project & Task Assignment for Employees */}
               {role === 'EMPLOYEE' && (
-                <div className="space-y-1.5 mt-2">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assign Tasks ({selectedTaskIds.length} selected)</label>
-                  <input
-                    type="text"
-                    placeholder="Search tasks by title or project..."
-                    value={taskSearchTerm}
-                    onChange={(e) => setTaskSearchTerm(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary transition-all text-foreground placeholder:text-muted-foreground/60"
-                  />
-                  <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-36 overflow-y-auto">
-                    {(() => {
-                      const filteredTasks = tasks.filter(t => 
-                        t.title.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
-                        (t.project?.name || '').toLowerCase().includes(taskSearchTerm.toLowerCase())
-                      );
-                      if (filteredTasks.length === 0) {
-                        return <p className="text-[10px] text-muted-foreground p-3 text-center">No tasks match search query</p>;
-                      }
-                      return filteredTasks.map((t) => {
-                        const isSelected = selectedTaskIds.includes(t.id);
-                        return (
-                          <label key={t.id} className="flex items-start gap-2.5 p-2 hover:bg-secondary/40 cursor-pointer transition-colors select-none">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                if (isSelected) {
-                                  setSelectedTaskIds(selectedTaskIds.filter(id => id !== t.id));
-                                } else {
-                                  setSelectedTaskIds([...selectedTaskIds, t.id]);
-                                }
-                              }}
-                              className="h-3.5 w-3.5 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-0 mt-0.5"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[8px] font-bold uppercase text-muted-foreground bg-secondary/80 px-1 py-0.2 rounded border border-border">
-                                  {t.project?.name || 'No Project'}
-                                </span>
-                                {t.assignee && (
-                                  <span className="text-[8px] font-medium text-amber-500 truncate max-w-[120px]">
-                                    Assigned: {t.assignee}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </label>
-                        );
-                      });
-                    })()}
+                <>
+                  <div className="space-y-1.5 mt-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assigned Project</label>
+                    <select
+                      required
+                      value={selectedProjectId}
+                      onChange={(e) => {
+                        setSelectedProjectId(e.target.value)
+                        setSelectedTaskIds([]) // Clear task assignments when switching projects
+                      }}
+                      className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                    >
+                      <option value="">Select Project (Required)</option>
+                      {projects.map((proj) => (
+                        <option key={proj.id} value={proj.id}>
+                          {proj.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
+
+                  {selectedProjectId ? (
+                    <div className="space-y-1.5 mt-2">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assign Tasks ({selectedTaskIds.length} selected)</label>
+                      <input
+                        type="text"
+                        placeholder="Search tasks by title..."
+                        value={taskSearchTerm}
+                        onChange={(e) => setTaskSearchTerm(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary transition-all text-foreground placeholder:text-muted-foreground/60"
+                      />
+                      <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-36 overflow-y-auto">
+                        {(() => {
+                          const filteredTasks = tasks.filter(t => 
+                            t.projectId === selectedProjectId &&
+                            (t.title.toLowerCase().includes(taskSearchTerm.toLowerCase()))
+                          );
+                          if (filteredTasks.length === 0) {
+                            return <p className="text-[10px] text-muted-foreground p-3 text-center">No tasks match search query in this project</p>;
+                          }
+                          return filteredTasks.map((t) => {
+                            const isSelected = selectedTaskIds.includes(t.id);
+                            return (
+                              <label key={t.id} className="flex items-start gap-2.5 p-2 hover:bg-secondary/40 cursor-pointer transition-colors select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    if (isSelected) {
+                                      setSelectedTaskIds(selectedTaskIds.filter(id => id !== t.id));
+                                    } else {
+                                      setSelectedTaskIds([...selectedTaskIds, t.id]);
+                                    }
+                                  }}
+                                  className="h-3.5 w-3.5 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-0 mt-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[8px] font-bold uppercase text-muted-foreground bg-secondary/80 px-1 py-0.2 rounded border border-border">
+                                      {t.project?.name || 'No Project'}
+                                    </span>
+                                    {t.assignee && (
+                                      <span className="text-[8px] font-medium text-amber-500 truncate max-w-[120px]">
+                                        Assigned: {t.assignee}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border bg-secondary/10 p-4 mt-2 text-center text-xs text-muted-foreground">
+                      Please select a project first to assign tasks.
+                    </div>
+                  )}
+                </>
               )}
 
               <button
@@ -676,63 +704,91 @@ export default function Employees() {
                 </div>
               )}
 
-              {/* Task Assignment */}
+              {/* Project & Task Assignment for Employees */}
               {role === 'EMPLOYEE' && (
-                <div className="space-y-1.5 mt-2">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assign Tasks ({selectedTaskIds.length} selected)</label>
-                  <input
-                    type="text"
-                    placeholder="Search tasks by title or project..."
-                    value={taskSearchTerm}
-                    onChange={(e) => setTaskSearchTerm(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary transition-all text-foreground placeholder:text-muted-foreground/60"
-                  />
-                  <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-36 overflow-y-auto">
-                    {(() => {
-                      const filteredTasks = tasks.filter(t => 
-                        t.title.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
-                        (t.project?.name || '').toLowerCase().includes(taskSearchTerm.toLowerCase())
-                      );
-                      if (filteredTasks.length === 0) {
-                        return <p className="text-[10px] text-muted-foreground p-3 text-center">No tasks match search query</p>;
-                      }
-                      return filteredTasks.map((t) => {
-                        const isSelected = selectedTaskIds.includes(t.id);
-                        return (
-                          <label key={t.id} className="flex items-start gap-2.5 p-2 hover:bg-secondary/40 cursor-pointer transition-colors select-none">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                if (isSelected) {
-                                  setSelectedTaskIds(selectedTaskIds.filter(id => id !== t.id));
-                                } else {
-                                  setSelectedTaskIds([...selectedTaskIds, t.id]);
-                                }
-                              }}
-                              className="h-3.5 w-3.5 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-0 mt-0.5"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[8px] font-bold uppercase text-muted-foreground bg-secondary/80 px-1 py-0.2 rounded border border-border">
-                                  {t.project?.name || 'No Project'}
-                                </span>
-                                {t.assignee && (
-                                  <span className={`text-[8px] font-medium truncate max-w-[120px] ${
-                                    t.assignee === fullName ? 'text-primary font-bold' : 'text-amber-500'
-                                  }`}>
-                                    Assigned: {t.assignee === fullName ? 'This Employee' : t.assignee}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </label>
-                        );
-                      });
-                    })()}
+                <>
+                  <div className="space-y-1.5 mt-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assigned Project</label>
+                    <select
+                      required
+                      value={selectedProjectId}
+                      onChange={(e) => {
+                        setSelectedProjectId(e.target.value)
+                        setSelectedTaskIds([]) // Clear task assignments when switching projects
+                      }}
+                      className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                    >
+                      <option value="">Select Project (Required)</option>
+                      {projects.map((proj) => (
+                        <option key={proj.id} value={proj.id}>
+                          {proj.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
+
+                  {selectedProjectId ? (
+                    <div className="space-y-1.5 mt-2">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assign Tasks ({selectedTaskIds.length} selected)</label>
+                      <input
+                        type="text"
+                        placeholder="Search tasks by title..."
+                        value={taskSearchTerm}
+                        onChange={(e) => setTaskSearchTerm(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary transition-all text-foreground placeholder:text-muted-foreground/60"
+                      />
+                      <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-36 overflow-y-auto">
+                        {(() => {
+                          const filteredTasks = tasks.filter(t => 
+                            t.projectId === selectedProjectId &&
+                            (t.title.toLowerCase().includes(taskSearchTerm.toLowerCase()))
+                          );
+                          if (filteredTasks.length === 0) {
+                            return <p className="text-[10px] text-muted-foreground p-3 text-center">No tasks match search query in this project</p>;
+                          }
+                          return filteredTasks.map((t) => {
+                            const isSelected = selectedTaskIds.includes(t.id);
+                            return (
+                              <label key={t.id} className="flex items-start gap-2.5 p-2 hover:bg-secondary/40 cursor-pointer transition-colors select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    if (isSelected) {
+                                      setSelectedTaskIds(selectedTaskIds.filter(id => id !== t.id));
+                                    } else {
+                                      setSelectedTaskIds([...selectedTaskIds, t.id]);
+                                    }
+                                  }}
+                                  className="h-3.5 w-3.5 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-0 mt-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[8px] font-bold uppercase text-muted-foreground bg-secondary/80 px-1 py-0.2 rounded border border-border">
+                                      {t.project?.name || 'No Project'}
+                                    </span>
+                                    {t.assignee && (
+                                      <span className={`text-[8px] font-medium truncate max-w-[120px] ${
+                                        t.assignee === fullName ? 'text-primary font-bold' : 'text-amber-500'
+                                      }`}>
+                                        Assigned: {t.assignee === fullName ? 'This Employee' : t.assignee}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border bg-secondary/10 p-4 mt-2 text-center text-xs text-muted-foreground">
+                      Please select a project first to assign tasks.
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="flex items-center gap-2 mt-4">
