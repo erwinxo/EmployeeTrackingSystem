@@ -32,6 +32,7 @@ export class UserController {
           where: {
             OR: [
               { fullName: { in: assignees as string[] } },
+              { role: 'EMPLOYEE' },
               { id: userId }
             ]
           },
