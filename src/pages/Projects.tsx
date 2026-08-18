@@ -25,6 +25,21 @@ export default function Projects() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
 
+  // Tasks Builder State
+  const [initialTasks, setInitialTasks] = useState<{ title: string; description: string }[]>([])
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDesc, setTaskDesc] = useState('')
+
+  const handleAddTaskToProject = () => {
+    if (!taskTitle.trim()) {
+      toast.error('Task title is required')
+      return
+    }
+    setInitialTasks([...initialTasks, { title: taskTitle.trim(), description: taskDesc.trim() }])
+    setTaskTitle('')
+    setTaskDesc('')
+  }
+
   const filteredProjects = projects.filter((proj) => {
     const matchesSearch = proj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (proj.description && proj.description.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -54,6 +69,9 @@ export default function Projects() {
     setDescription('')
     setStatus('Planning')
     setEditingId(null)
+    setInitialTasks([])
+    setTaskTitle('')
+    setTaskDesc('')
   }
 
   const handleAddProject = async (e: React.FormEvent) => {
@@ -63,6 +81,9 @@ export default function Projects() {
         name,
         description,
         status,
+        tasks: initialTasks.length > 0 ? {
+          create: initialTasks.map(t => ({ title: t.title, description: t.description }))
+        } : undefined
       })
       toast.success('Project created successfully')
       setIsAddModalOpen(false)
@@ -82,6 +103,9 @@ export default function Projects() {
         name,
         description,
         status,
+        tasks: initialTasks.length > 0 ? {
+          create: initialTasks.map(t => ({ title: t.title, description: t.description }))
+        } : undefined
       })
       toast.success('Project updated successfully')
       setIsEditModalOpen(false)
@@ -110,6 +134,9 @@ export default function Projects() {
     setName(proj.name)
     setDescription(proj.description || '')
     setStatus(proj.status || 'Planning')
+    setInitialTasks([])
+    setTaskTitle('')
+    setTaskDesc('')
     setIsEditModalOpen(true)
   }
 
@@ -318,6 +345,57 @@ export default function Projects() {
                 </select>
               </div>
 
+              {/* Tasks Builder */}
+              <div className="border border-border/80 rounded-2xl p-4 bg-secondary/15 space-y-3 mt-3">
+                <h3 className="text-[10px] font-bold text-foreground uppercase tracking-wider block">Add Tasks to Project</h3>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Task Title..."
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground placeholder:text-muted-foreground/60"
+                  />
+                  <textarea
+                    placeholder="Task Description (optional)..."
+                    value={taskDesc}
+                    onChange={(e) => setTaskDesc(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground resize-none placeholder:text-muted-foreground/60"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddTaskToProject}
+                    className="w-full rounded-xl border border-primary text-primary hover:bg-primary hover:text-primary-foreground py-2 text-xs font-bold transition-all"
+                  >
+                    Add Task to Project
+                  </button>
+                </div>
+
+                {initialTasks.length > 0 && (
+                  <div className="space-y-1.5 pt-2 border-t border-border/60">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">New Tasks to Create ({initialTasks.length})</label>
+                    <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                      {initialTasks.map((t, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-background/50 border border-border rounded-xl p-2 text-xs">
+                          <div className="min-w-0 pr-3">
+                            <p className="font-semibold text-foreground truncate">{t.title}</p>
+                            {t.description && <p className="text-[10px] text-muted-foreground truncate">{t.description}</p>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInitialTasks(initialTasks.filter((_, i) => i !== idx))}
+                            className="text-rose-500 hover:bg-rose-500/10 p-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 type="submit"
                 className="w-full rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/10 hover:opacity-95 transition-all mt-6"
@@ -377,6 +455,72 @@ export default function Projects() {
                   <option value="Completed">Completed</option>
                   <option value="On Hold">On Hold</option>
                 </select>
+              </div>
+
+              {/* Existing Tasks */}
+              {editingId && projects.find(p => p.id === editingId)?.tasks?.length > 0 && (
+                <div className="space-y-1.5 mt-2">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Existing Tasks</label>
+                  <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-24 overflow-y-auto p-1.5 space-y-1">
+                    {projects.find(p => p.id === editingId)?.tasks.map((task: any) => (
+                      <div key={task.id} className="flex justify-between items-center text-xs p-1.5 rounded-lg bg-secondary/35 border border-border/40">
+                        <span className="font-semibold text-foreground truncate max-w-[180px]">{task.title}</span>
+                        <span className="text-[9px] text-muted-foreground uppercase">{task.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tasks Builder */}
+              <div className="border border-border/80 rounded-2xl p-4 bg-secondary/15 space-y-3 mt-3">
+                <h3 className="text-[10px] font-bold text-foreground uppercase tracking-wider block">Add Tasks to Project</h3>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Task Title..."
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground placeholder:text-muted-foreground/60"
+                  />
+                  <textarea
+                    placeholder="Task Description (optional)..."
+                    value={taskDesc}
+                    onChange={(e) => setTaskDesc(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground resize-none placeholder:text-muted-foreground/60"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddTaskToProject}
+                    className="w-full rounded-xl border border-primary text-primary hover:bg-primary hover:text-primary-foreground py-2 text-xs font-bold transition-all"
+                  >
+                    Add Task to Project
+                  </button>
+                </div>
+
+                {initialTasks.length > 0 && (
+                  <div className="space-y-1.5 pt-2 border-t border-border/60">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">New Tasks to Create ({initialTasks.length})</label>
+                    <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                      {initialTasks.map((t, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-background/50 border border-border rounded-xl p-2 text-xs">
+                          <div className="min-w-0 pr-3">
+                            <p className="font-semibold text-foreground truncate">{t.title}</p>
+                            {t.description && <p className="text-[10px] text-muted-foreground truncate">{t.description}</p>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInitialTasks(initialTasks.filter((_, i) => i !== idx))}
+                            className="text-rose-500 hover:bg-rose-500/10 p-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button

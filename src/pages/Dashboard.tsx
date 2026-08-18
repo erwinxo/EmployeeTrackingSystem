@@ -113,6 +113,7 @@ export default function Dashboard() {
   const [checkoutNotes, setCheckoutNotes] = useState('')
   const [myActiveTasks, setMyActiveTasks] = useState<any[]>([])
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([])
+  const [projectStatusMap, setProjectStatusMap] = useState<Record<string, 'In Progress' | 'Completed'>>({})
   const [durations, setDurations] = useState({
     workHours: 0,
     breakHours: 0,
@@ -224,6 +225,15 @@ export default function Dashboard() {
     setMyActiveTasks(activeTasks)
     setCompletedTaskIds([])
     setCheckoutNotes('')
+    
+    // Initialize projectStatusMap with the current status of all my projects
+    const myProjects = projects.filter(p => tasks.some(t => t.assignee === user?.name && t.projectId === p.id))
+    const initialMap: Record<string, 'In Progress' | 'Completed'> = {}
+    myProjects.forEach(p => {
+      initialMap[p.id] = (p.status === 'Completed' ? 'Completed' : 'In Progress')
+    })
+    setProjectStatusMap(initialMap)
+    
     setIsCheckoutModalOpen(true)
   }
 
@@ -245,10 +255,29 @@ export default function Dashboard() {
         )
       }
 
+      // 3. Concurrently update all project status changes
+      const projectIds = Object.keys(projectStatusMap)
+      if (projectIds.length > 0) {
+        await Promise.all(
+          projectIds.map(projId => {
+            const currentProj = projects.find(p => p.id === projId)
+            const targetStatus = projectStatusMap[projId]
+            if (currentProj && currentProj.status !== targetStatus) {
+              return api.put(`/projects/${projId}`, {
+                name: currentProj.name,
+                description: currentProj.description,
+                status: targetStatus
+              })
+            }
+            return Promise.resolve()
+          })
+        )
+      }
+
       const newStat = res.data.data.status
       setCurrentStatus(newStat)
       updateUser({ currentStatus: newStat })
-      toast.success('Shift checked out. Daily tasks review saved successfully.')
+      toast.success('Shift checked out. Daily tasks & projects review saved successfully.')
       setIsCheckoutModalOpen(false)
       
       // Refresh all
@@ -1037,6 +1066,73 @@ export default function Dashboard() {
                   onChange={(e) => setCheckoutNotes(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground resize-none"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Project Status Update
+                </label>
+                <p className="text-[10px] text-muted-foreground">
+                  Update the status of projects you are allocated to:
+                </p>
+                <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-36 overflow-y-auto mb-4">
+                  {(() => {
+                    const myProjects = projects.filter(p => tasks.some(t => t.assignee === user?.name && t.projectId === p.id));
+                    if (myProjects.length === 0) {
+                      return (
+                        <p className="text-xs text-muted-foreground p-4 text-center italic">
+                          No projects currently associated with your tasks.
+                        </p>
+                      );
+                    }
+                    return myProjects.map((project) => {
+                      const currentVal = projectStatusMap[project.id] || 'In Progress'
+                      return (
+                        <div
+                          key={project.id}
+                          className="flex items-center justify-between p-3 hover:bg-secondary/20 transition-colors"
+                        >
+                          <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">
+                            {project.name}
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setProjectStatusMap({
+                                ...projectStatusMap,
+                                [project.id]: 'In Progress'
+                              })}
+                              className={cn(
+                                "px-2 py-1 rounded-lg text-[9px] font-bold border transition-all cursor-pointer",
+                                currentVal === 'In Progress'
+                                  ? "bg-sky-500/10 text-sky-500 border-sky-500/20 shadow-sm"
+                                  : "bg-secondary text-muted-foreground border-border hover:bg-accent/40"
+                              )}
+                            >
+                              In Progress
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setProjectStatusMap({
+                                ...projectStatusMap,
+                                [project.id]: 'Completed'
+                              })}
+                              className={cn(
+                                "px-2 py-1 rounded-lg text-[9px] font-bold border transition-all cursor-pointer",
+                                currentVal === 'Completed'
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-sm"
+                                  : "bg-secondary text-muted-foreground border-border hover:bg-accent/40"
+                              )}
+                            >
+                              Completed
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
 
               <div className="space-y-2">

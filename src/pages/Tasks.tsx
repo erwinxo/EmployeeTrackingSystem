@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks'
 import api from '../services/api'
-import { ClipboardList, Plus, Trash2, Edit2, X, RefreshCw } from 'lucide-react'
+import { Trash2, Edit2, X, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function Tasks() {
@@ -15,7 +15,6 @@ export default function Tasks() {
   const [loading, setLoading] = useState(false)
 
   // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // Form Fields
@@ -103,30 +102,7 @@ export default function Tasks() {
     setEditingId(null)
   }
 
-  const handleAddTask = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!projectId) {
-      toast.error('Please create a project first before adding tasks')
-      return
-    }
-    try {
-      await api.post('/tasks', {
-        title,
-        description,
-        status,
-        assignee: assignee || user?.name || 'Unassigned',
-        projectId,
-        requirementId: requirementId || null,
-      })
-      toast.success('Task created successfully')
-      setIsAddModalOpen(false)
-      fetchData()
-      resetForm()
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to create task'
-      toast.error(msg)
-    }
-  }
+
 
   const handleEditTask = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -215,18 +191,6 @@ export default function Tasks() {
           >
             <RefreshCw size={16} />
           </button>
-          {canManage && (
-            <button
-              onClick={() => {
-                resetForm()
-                setIsAddModalOpen(true)
-              }}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/10 hover:shadow-primary/20 hover:opacity-95 transition-all"
-            >
-              <Plus size={16} />
-              <span>Add Task</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -350,117 +314,7 @@ export default function Tasks() {
         </div>
       )}
 
-      {/* Add Task Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl border border-border/40 bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-left">
-            <div className="flex items-center justify-between border-b border-border/40 pb-3">
-              <h2 className="text-md font-bold text-foreground flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-primary" />
-                <span>Create New Task</span>
-              </h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-all">
-                <X size={16} />
-              </button>
-            </div>
 
-            <form onSubmit={handleAddTask} className="mt-4 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Task Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Code auth route schema validator"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Description</label>
-                <textarea
-                  placeholder="Details and checklist for completion..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Associate Project</label>
-                  <select
-                    value={projectId}
-                    onChange={(e) => setProjectId(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
-                  >
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Link Requirement</label>
-                  <select
-                    value={requirementId}
-                    onChange={(e) => setRequirementId(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
-                  >
-                    <option value="">None (Unlinked)</option>
-                    {projectRequirements.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {getRequirementLabel(r.id)}: {r.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assignee Name</label>
-                  <select
-                    value={assignee}
-                    onChange={(e) => setAssignee(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
-                  >
-                    <option value="">Unassigned</option>
-                    {users.filter(u => u.role !== 'ADMIN').map((u) => (
-                      <option key={u.id} value={u.fullName || u.name}>
-                        {u.fullName || u.name} ({u.department || 'General'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Initial Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
-                  >
-                    <option value="TODO">To Do</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="REVIEW">In Review</option>
-                    <option value="FINISHED">Finished</option>
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/10 hover:opacity-95 transition-all mt-6"
-              >
-                Create Task
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Edit Task Modal */}
       {isEditModalOpen && (
