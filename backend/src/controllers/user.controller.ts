@@ -58,7 +58,7 @@ export class UserController {
 
   async create(req: Request, res: Response): Promise<void> {
     try {
-      const { fullName, email, password, role, department, taskIds } = req.body;
+      const { fullName, email, password, role, department, taskIds, projectId } = req.body;
       const hashedPassword = await bcrypt.hash(password || 'Default123!', 10);
       const user = await userRepository.createUser({
         fullName,
@@ -68,11 +68,19 @@ export class UserController {
         department,
       });
 
-      // Update task assignees
-      if (taskIds && Array.isArray(taskIds) && taskIds.length > 0) {
+      // Update task assignees (only if role is EMPLOYEE)
+      if (role === 'EMPLOYEE' && taskIds && Array.isArray(taskIds) && taskIds.length > 0) {
         await prisma.task.updateMany({
           where: { id: { in: taskIds } },
           data: { assignee: fullName },
+        });
+      }
+
+      // Assign project manager to selected project
+      if (role === 'PROJECT_MANAGER' && projectId) {
+        await prisma.project.update({
+          where: { id: projectId },
+          data: { projectManagerId: user.id },
         });
       }
 
@@ -87,7 +95,7 @@ export class UserController {
   async update(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
-      const { fullName, email, role, isActive, department, taskIds } = req.body;
+      const { fullName, email, role, isActive, department, taskIds, projectId } = req.body;
 
       // Get old user details to unassign previous tasks
       const oldUser = await prisma.user.findUnique({ where: { id } });
@@ -106,11 +114,33 @@ export class UserController {
         department,
       });
 
-      // Assign new tasks
-      if (taskIds && Array.isArray(taskIds) && taskIds.length > 0) {
+      // Assign new tasks (only if role is EMPLOYEE)
+      if (role === 'EMPLOYEE' && taskIds && Array.isArray(taskIds) && taskIds.length > 0) {
         await prisma.task.updateMany({
           where: { id: { in: taskIds } },
           data: { assignee: fullName },
+        });
+      }
+
+      // Manage project manager assignments
+      if (role === 'PROJECT_MANAGER') {
+        // Clear project manager from other projects
+        await prisma.project.updateMany({
+          where: { projectManagerId: id },
+          data: { projectManagerId: null },
+        });
+        // Assign to new project if provided
+        if (projectId) {
+          await prisma.project.update({
+            where: { id: projectId },
+            data: { projectManagerId: id },
+          });
+        }
+      } else {
+        // If role is no longer PROJECT_MANAGER, clear projectManagerId
+        await prisma.project.updateMany({
+          where: { projectManagerId: id },
+          data: { projectManagerId: null },
         });
       }
 

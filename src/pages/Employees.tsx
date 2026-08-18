@@ -25,6 +25,7 @@ export default function Employees() {
 
   const [employees, setEmployees] = useState<DbUserExtended[]>([])
   const [tasks, setTasks] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -44,6 +45,9 @@ export default function Employees() {
   // Tasks Assign State
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
   const [taskSearchTerm, setTaskSearchTerm] = useState('')
+
+  // Project Manager Assignment State
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
 
   const fetchEmployees = async () => {
     setLoading(true)
@@ -76,9 +80,19 @@ export default function Employees() {
     }
   }
 
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get('/projects')
+      setProjects(response.data.data)
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+    }
+  }
+
   useEffect(() => {
     fetchEmployees()
     fetchTasks()
+    fetchProjects()
   }, [])
 
   const resetForm = () => {
@@ -91,6 +105,7 @@ export default function Employees() {
     setEditingId(null)
     setSelectedTaskIds([])
     setTaskSearchTerm('')
+    setSelectedProjectId('')
   }
 
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -102,12 +117,14 @@ export default function Employees() {
         password,
         role,
         department,
-        taskIds: selectedTaskIds,
+        taskIds: role === 'EMPLOYEE' ? selectedTaskIds : [],
+        projectId: role === 'PROJECT_MANAGER' ? selectedProjectId : undefined,
       })
       toast.success('Employee created successfully')
       setIsAddModalOpen(false)
       fetchEmployees()
       fetchTasks()
+      fetchProjects()
       resetForm()
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to create employee'
@@ -125,12 +142,14 @@ export default function Employees() {
         role,
         department,
         isActive,
-        taskIds: selectedTaskIds,
+        taskIds: role === 'EMPLOYEE' ? selectedTaskIds : [],
+        projectId: role === 'PROJECT_MANAGER' ? selectedProjectId : undefined,
       })
       toast.success('Employee updated successfully')
       setIsEditModalOpen(false)
       fetchEmployees()
       fetchTasks()
+      fetchProjects()
       resetForm()
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to update employee'
@@ -161,6 +180,8 @@ export default function Employees() {
     const userTasks = tasks.filter(t => t.assignee === emp.name).map(t => t.id)
     setSelectedTaskIds(userTasks)
     setTaskSearchTerm('')
+    const pmProject = projects.find(p => p.projectManagerId === emp.id)
+    setSelectedProjectId(pmProject ? pmProject.id : '')
     setIsEditModalOpen(true)
   }
 
@@ -436,8 +457,27 @@ export default function Employees() {
                 </div>
               </div>
 
+              {/* Project Assignment for Project Managers */}
+              {role === 'PROJECT_MANAGER' && (
+                <div className="space-y-1.5 mt-2">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assigned Project</label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    <option value="">Select Project (Unassigned)</option>
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        {proj.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Task Assignment */}
-              {role !== 'ADMIN' && (
+              {role === 'EMPLOYEE' && (
                 <div className="space-y-1.5 mt-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assign Tasks ({selectedTaskIds.length} selected)</label>
                   <input
@@ -572,8 +612,27 @@ export default function Employees() {
                 </div>
               </div>
 
+              {/* Project Assignment for Project Managers */}
+              {role === 'PROJECT_MANAGER' && (
+                <div className="space-y-1.5 mt-2">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assigned Project</label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    <option value="">Select Project (Unassigned)</option>
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        {proj.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Task Assignment */}
-              {role !== 'ADMIN' && (
+              {role === 'EMPLOYEE' && (
                 <div className="space-y-1.5 mt-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assign Tasks ({selectedTaskIds.length} selected)</label>
                   <input
