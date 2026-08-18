@@ -400,109 +400,111 @@ export default function Dashboard() {
       </div>
 
       {/* Check-in Widget */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/3 h-[180px] w-[180px] rounded-full bg-secondary/20 blur-[40px] pointer-events-none" />
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="relative">
-            <Clock size={32} className="text-primary" />
-            <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card ${
-              currentStatus === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' :
-              currentStatus === 'BREAK' ? 'bg-rose-500 animate-pulse' :
-              currentStatus === 'LUNCH' ? 'bg-amber-500 animate-pulse' :
-              'bg-neutral-500'
-            }`} />
+      {user.role !== 'ADMIN' && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/3 h-[180px] w-[180px] rounded-full bg-secondary/20 blur-[40px] pointer-events-none" />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="relative">
+              <Clock size={32} className="text-primary" />
+              <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card ${
+                currentStatus === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' :
+                currentStatus === 'BREAK' ? 'bg-rose-500 animate-pulse' :
+                currentStatus === 'LUNCH' ? 'bg-amber-500 animate-pulse' :
+                'bg-neutral-500'
+              }`} />
+            </div>
+            <div>
+              <h2 className="text-md font-bold tracking-tight text-foreground flex items-center gap-2">
+                <span>Shift Status:</span>
+                <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase border ${
+                  currentStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                  currentStatus === 'BREAK' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                  currentStatus === 'LUNCH' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                  'bg-neutral-500/10 text-muted-foreground border-border'
+                }`}>
+                  {currentStatus.replace('_', ' ')}
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {currentStatus === 'OFF_WORK' ? 'You are currently off-duty. Clock in to begin your day.' : 'Your working/break metrics are accumulating in real-time.'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-md font-bold tracking-tight text-foreground flex items-center gap-2">
-              <span>Shift Status:</span>
-              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase border ${
-                currentStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                currentStatus === 'BREAK' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
-                currentStatus === 'LUNCH' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
-                'bg-neutral-500/10 text-muted-foreground border-border'
-              }`}>
-                {currentStatus.replace('_', ' ')}
-              </span>
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {currentStatus === 'OFF_WORK' ? 'You are currently off-duty. Clock in to begin your day.' : 'Your working/break metrics are accumulating in real-time.'}
-            </p>
+
+          {/* Timers display grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-secondary/30 p-4 rounded-xl border border-border/40 relative z-10 w-full lg:w-auto">
+            <div className="text-center sm:text-left min-w-[90px]">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Active Work</span>
+              <span className="text-sm font-black text-foreground font-mono">{formatDuration(durations.workHours)}</span>
+            </div>
+            <div className="text-center sm:text-left min-w-[90px]">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Short Break</span>
+              <span className="text-sm font-black text-rose-500 font-mono">{formatDuration(durations.breakHours)}</span>
+            </div>
+            <div className="text-center sm:text-left min-w-[90px]">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Lunch Break</span>
+              <span className="text-sm font-black text-amber-500 font-mono">{formatDuration(durations.lunchHours)}</span>
+            </div>
+            <div className="text-center sm:text-left min-w-[90px]">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Total Day</span>
+              <span className="text-sm font-black text-primary font-mono">{formatDuration(durations.totalHours)}</span>
+            </div>
+          </div>
+
+          {/* Actions buttons */}
+          <div className="flex flex-wrap gap-2.5 relative z-10">
+            {currentStatus === 'OFF_WORK' && (
+              <button
+                onClick={() => handleStatusChange('CHECK_IN')}
+                className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold shadow-lg shadow-primary/20 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              >
+                Check In Shift
+              </button>
+            )}
+
+            {currentStatus === 'ACTIVE' && (
+              <>
+                <button
+                  onClick={() => handleStatusChange('BREAK_START')}
+                  className="rounded-xl border border-border hover:bg-secondary text-foreground px-3.5 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                >
+                  Start Break
+                </button>
+                <button
+                  onClick={() => handleStatusChange('LUNCH_START')}
+                  className="rounded-xl border border-border hover:bg-secondary text-foreground px-3.5 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                >
+                  Go to Lunch
+                </button>
+                <button
+                  onClick={() => handleStatusChange('CHECK_OUT')}
+                  className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-rose-500/25 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                >
+                  Check Out Shift
+                </button>
+              </>
+            )}
+
+            {currentStatus === 'BREAK' && (
+              <button
+                onClick={() => handleStatusChange('BREAK_END')}
+                className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              >
+                Resume Work
+              </button>
+            )}
+
+            {currentStatus === 'LUNCH' && (
+              <button
+                onClick={() => handleStatusChange('LUNCH_END')}
+                className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              >
+                Resume Work
+              </button>
+            )}
           </div>
         </div>
-
-        {/* Timers display grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-secondary/30 p-4 rounded-xl border border-border/40 relative z-10 w-full lg:w-auto">
-          <div className="text-center sm:text-left min-w-[90px]">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Active Work</span>
-            <span className="text-sm font-black text-foreground font-mono">{formatDuration(durations.workHours)}</span>
-          </div>
-          <div className="text-center sm:text-left min-w-[90px]">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Short Break</span>
-            <span className="text-sm font-black text-rose-500 font-mono">{formatDuration(durations.breakHours)}</span>
-          </div>
-          <div className="text-center sm:text-left min-w-[90px]">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Lunch Break</span>
-            <span className="text-sm font-black text-amber-500 font-mono">{formatDuration(durations.lunchHours)}</span>
-          </div>
-          <div className="text-center sm:text-left min-w-[90px]">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Total Day</span>
-            <span className="text-sm font-black text-primary font-mono">{formatDuration(durations.totalHours)}</span>
-          </div>
-        </div>
-
-        {/* Actions buttons */}
-        <div className="flex flex-wrap gap-2.5 relative z-10">
-          {currentStatus === 'OFF_WORK' && (
-            <button
-              onClick={() => handleStatusChange('CHECK_IN')}
-              className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold shadow-lg shadow-primary/20 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-            >
-              Check In Shift
-            </button>
-          )}
-
-          {currentStatus === 'ACTIVE' && (
-            <>
-              <button
-                onClick={() => handleStatusChange('BREAK_START')}
-                className="rounded-xl border border-border hover:bg-secondary text-foreground px-3.5 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-              >
-                Start Break
-              </button>
-              <button
-                onClick={() => handleStatusChange('LUNCH_START')}
-                className="rounded-xl border border-border hover:bg-secondary text-foreground px-3.5 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-              >
-                Go to Lunch
-              </button>
-              <button
-                onClick={() => handleStatusChange('CHECK_OUT')}
-                className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-rose-500/25 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-              >
-                Check Out Shift
-              </button>
-            </>
-          )}
-
-          {currentStatus === 'BREAK' && (
-            <button
-              onClick={() => handleStatusChange('BREAK_END')}
-              className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-            >
-              Resume Work
-            </button>
-          )}
-
-          {currentStatus === 'LUNCH' && (
-            <button
-              onClick={() => handleStatusChange('LUNCH_END')}
-              className="rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-            >
-              Resume Work
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Stats Cards - High Fidelity Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
