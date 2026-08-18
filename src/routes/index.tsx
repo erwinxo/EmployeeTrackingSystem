@@ -54,7 +54,7 @@ export const router = createBrowserRouter([
       {
         path: 'employees',
         element: (
-          <RoleGuard allowedRoles={['ADMIN']}>
+          <RoleGuard allowedRoles={['ADMIN', 'MANAGER', 'PROJECT_MANAGER']}>
             <Employees />
           </RoleGuard>
         ),
@@ -62,7 +62,7 @@ export const router = createBrowserRouter([
       {
         path: 'projects',
         element: (
-          <RoleGuard allowedRoles={['ADMIN', 'MANAGER']}>
+          <RoleGuard allowedRoles={['ADMIN', 'MANAGER', 'PROJECT_MANAGER']}>
             <Projects />
           </RoleGuard>
         ),
@@ -70,7 +70,7 @@ export const router = createBrowserRouter([
       {
         path: 'requirements',
         element: (
-          <RoleGuard allowedRoles={['ADMIN', 'MANAGER']}>
+          <RoleGuard allowedRoles={['ADMIN', 'MANAGER', 'PROJECT_MANAGER']}>
             <Requirements />
           </RoleGuard>
         ),

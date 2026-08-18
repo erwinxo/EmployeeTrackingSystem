@@ -4,7 +4,15 @@ import { successResponse } from '../utils/response';
 
 export class ProjectController {
   async list(req: Request, res: Response): Promise<void> {
+    const userRole = req.user?.role;
+    const userId = req.user?.sub;
+
+    const whereClause = userRole === 'PROJECT_MANAGER' && userId
+      ? { projectManagerId: userId }
+      : {};
+
     const projects = await prisma.project.findMany({
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: { tasks: true, requirements: true },
     });

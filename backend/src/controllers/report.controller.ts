@@ -5,9 +5,16 @@ import PDFDocument from 'pdfkit';
 
 export class ReportController {
   async generate(req: Request, res: Response): Promise<void> {
-    const projects = await prisma.project.count();
-    const tasks = await prisma.task.count();
-    const requirements = await prisma.clientRequirement.count();
+    const userRole = req.user?.role;
+    const userId = req.user?.sub;
+
+    const projectWhere = userRole === 'PROJECT_MANAGER' && userId ? { projectManagerId: userId } : {};
+    const taskWhere = userRole === 'PROJECT_MANAGER' && userId ? { project: { projectManagerId: userId } } : {};
+    const requirementWhere = userRole === 'PROJECT_MANAGER' && userId ? { project: { projectManagerId: userId } } : {};
+
+    const projects = await prisma.project.count({ where: projectWhere });
+    const tasks = await prisma.task.count({ where: taskWhere });
+    const requirements = await prisma.clientRequirement.count({ where: requirementWhere });
 
     res.status(200).json(
       successResponse('Report generated successfully', {
@@ -19,16 +26,25 @@ export class ReportController {
   async exportReport(req: Request, res: Response): Promise<void> {
     try {
       const format = req.query.format?.toString() || 'csv';
+      const userRole = req.user?.role;
+      const userId = req.user?.sub;
+
+      const projectWhere = userRole === 'PROJECT_MANAGER' && userId ? { projectManagerId: userId } : {};
+      const taskWhere = userRole === 'PROJECT_MANAGER' && userId ? { project: { projectManagerId: userId } } : {};
+      const requirementWhere = userRole === 'PROJECT_MANAGER' && userId ? { project: { projectManagerId: userId } } : {};
 
       // Fetch active data
       const [projects, tasks, requirements] = await Promise.all([
         prisma.project.findMany({
+          where: projectWhere,
           include: { tasks: true, requirements: true },
         }),
         prisma.task.findMany({
+          where: taskWhere,
           include: { project: true },
         }),
         prisma.clientRequirement.findMany({
+          where: requirementWhere,
           include: { project: true },
         }),
       ]);

@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 export default function Projects() {
   const { user } = useAuth()
-  const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
+  const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'PROJECT_MANAGER'
 
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -30,6 +30,10 @@ export default function Projects() {
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDesc, setTaskDesc] = useState('')
 
+  // Users State (to fetch Project Managers)
+  const [users, setUsers] = useState<any[]>([])
+  const [projectManagerId, setProjectManagerId] = useState('')
+
   const handleAddTaskToProject = () => {
     if (!taskTitle.trim()) {
       toast.error('Task title is required')
@@ -50,8 +54,12 @@ export default function Projects() {
   const fetchProjects = async () => {
     setLoading(true)
     try {
-      const response = await api.get('/projects')
-      setProjects(response.data.data)
+      const [projRes, usersRes] = await Promise.all([
+        api.get('/projects'),
+        api.get('/users')
+      ])
+      setProjects(projRes.data.data)
+      setUsers(usersRes.data.data)
     } catch (error) {
       console.error('Error fetching projects:', error)
       toast.error('Failed to load projects list')
@@ -72,6 +80,7 @@ export default function Projects() {
     setInitialTasks([])
     setTaskTitle('')
     setTaskDesc('')
+    setProjectManagerId('')
   }
 
   const handleAddProject = async (e: React.FormEvent) => {
@@ -81,6 +90,7 @@ export default function Projects() {
         name,
         description,
         status,
+        projectManagerId: projectManagerId || null,
         tasks: initialTasks.length > 0 ? {
           create: initialTasks.map(t => ({ title: t.title, description: t.description }))
         } : undefined
@@ -103,6 +113,7 @@ export default function Projects() {
         name,
         description,
         status,
+        projectManagerId: projectManagerId || null,
         tasks: initialTasks.length > 0 ? {
           create: initialTasks.map(t => ({ title: t.title, description: t.description }))
         } : undefined
@@ -146,6 +157,7 @@ export default function Projects() {
     setName(proj.name)
     setDescription(proj.description || '')
     setStatus(proj.status || 'Planning')
+    setProjectManagerId(proj.projectManagerId || '')
     setInitialTasks([])
     setTaskTitle('')
     setTaskDesc('')
@@ -177,7 +189,7 @@ export default function Projects() {
             Track allocations, project scopes, and overall timeline status.
           </p>
         </div>
-        {isManagerOrAdmin && (
+        {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
           <button
             onClick={() => {
               resetForm()
@@ -256,7 +268,20 @@ export default function Projects() {
                   </div>
 
                   <h3 className="text-md font-bold text-foreground mb-1.5">{proj.name}</h3>
-                  <p className="text-xs text-muted-foreground line-clamp-3 mb-6 min-h-[48px]">{proj.description || 'No description provided.'}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-3 mb-4 min-h-[48px]">{proj.description || 'No description provided.'}</p>
+                  
+                  {(() => {
+                    const pm = users.find(u => u.id === proj.projectManagerId)
+                    return pm ? (
+                      <p className="text-[10px] text-primary font-bold mb-4">
+                        Project Manager: {pm.fullName || pm.name}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground/60 italic mb-4">
+                        No Project Manager assigned
+                      </p>
+                    )
+                  })()}
                   
                   {/* Progress bar */}
                   <div className="space-y-1.5 mb-6">
@@ -290,13 +315,15 @@ export default function Projects() {
                     >
                       <Edit2 size={14} />
                     </button>
-                    <button
-                      onClick={() => handleDeleteProject(proj.id)}
-                      className="p-1.5 rounded-lg text-rose-500/75 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
-                      title="Delete Project"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {user?.role !== 'PROJECT_MANAGER' && (
+                      <button
+                        onClick={() => handleDeleteProject(proj.id)}
+                        className="p-1.5 rounded-lg text-rose-500/75 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
+                        title="Delete Project"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -354,6 +381,22 @@ export default function Projects() {
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                   <option value="On Hold">On Hold</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assigned Project Manager</label>
+                <select
+                  value={projectManagerId}
+                  onChange={(e) => setProjectManagerId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                >
+                  <option value="">Select Project Manager (Unassigned)</option>
+                  {users.filter(u => u.role === 'PROJECT_MANAGER').map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.fullName || u.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -466,6 +509,22 @@ export default function Projects() {
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                   <option value="On Hold">On Hold</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assigned Project Manager</label>
+                <select
+                  value={projectManagerId}
+                  onChange={(e) => setProjectManagerId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                >
+                  <option value="">Select Project Manager (Unassigned)</option>
+                  {users.filter(u => u.role === 'PROJECT_MANAGER').map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.fullName || u.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

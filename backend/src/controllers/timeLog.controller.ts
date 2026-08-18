@@ -109,6 +109,7 @@ export class TimeLogController {
   async getAllUsersStatus(req: Request, res: Response): Promise<void> {
     try {
       const userRole = req.user?.role;
+      const userId = req.user?.sub;
       if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userRole !== 'PROJECT_MANAGER') {
         throw new AppError('Access denied', 403);
       }
@@ -119,7 +120,28 @@ export class TimeLogController {
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
 
+      let userFilter = {};
+      if (userRole === 'PROJECT_MANAGER' && userId) {
+        const myProjects = await prisma.project.findMany({
+          where: { projectManagerId: userId },
+          select: { id: true }
+        });
+        const projectIds = myProjects.map(p => p.id);
+        const myTasks = await prisma.task.findMany({
+          where: { projectId: { in: projectIds } },
+          select: { assignee: true }
+        });
+        const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
+        userFilter = {
+          OR: [
+            { fullName: { in: assignees as string[] } },
+            { id: userId }
+          ]
+        };
+      }
+
       const users = await prisma.user.findMany({
+        where: userFilter,
         select: {
           id: true,
           fullName: true,
@@ -156,6 +178,7 @@ export class TimeLogController {
   async getTodayActivityFeed(req: Request, res: Response): Promise<void> {
     try {
       const userRole = req.user?.role;
+      const userId = req.user?.sub;
       if (userRole !== 'ADMIN' && userRole !== 'MANAGER' && userRole !== 'PROJECT_MANAGER') {
         throw new AppError('Access denied', 403);
       }
@@ -166,13 +189,34 @@ export class TimeLogController {
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
 
-      const logs = await prisma.timeLog.findMany({
-        where: {
-          timestamp: {
-            gte: startOfToday,
-            lte: endOfToday,
-          },
+      let logFilter: any = {
+        timestamp: {
+          gte: startOfToday,
+          lte: endOfToday,
         },
+      };
+
+      if (userRole === 'PROJECT_MANAGER' && userId) {
+        const myProjects = await prisma.project.findMany({
+          where: { projectManagerId: userId },
+          select: { id: true }
+        });
+        const projectIds = myProjects.map(p => p.id);
+        const myTasks = await prisma.task.findMany({
+          where: { projectId: { in: projectIds } },
+          select: { assignee: true }
+        });
+        const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
+        logFilter.user = {
+          OR: [
+            { fullName: { in: assignees as string[] } },
+            { id: userId }
+          ]
+        };
+      }
+
+      const logs = await prisma.timeLog.findMany({
+        where: logFilter,
         include: {
           user: {
             select: {

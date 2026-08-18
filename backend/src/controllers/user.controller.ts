@@ -9,8 +9,48 @@ const userRepository = new UserRepository();
 export class UserController {
   async list(req: Request, res: Response): Promise<void> {
     try {
-      const users = await userRepository.findAll();
-      res.status(200).json(successResponse('Users retrieved successfully', users));
+      const userRole = req.user?.role;
+      const userId = req.user?.sub;
+
+      if (userRole === 'PROJECT_MANAGER' && userId) {
+        // Get all projects assigned to this PM
+        const myProjects = await prisma.project.findMany({
+          where: { projectManagerId: userId },
+          select: { id: true }
+        });
+        const projectIds = myProjects.map(p => p.id);
+
+        // Get all tasks in these projects to find assignees (team members)
+        const myTasks = await prisma.task.findMany({
+          where: { projectId: { in: projectIds } },
+          select: { assignee: true }
+        });
+        const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
+
+        // Find users matching those assignees or the PM themselves
+        const users = await prisma.user.findMany({
+          where: {
+            OR: [
+              { fullName: { in: assignees as string[] } },
+              { id: userId }
+            ]
+          },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+            department: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        });
+        res.status(200).json(successResponse('Users retrieved successfully', users));
+      } else {
+        const users = await userRepository.findAll();
+        res.status(200).json(successResponse('Users retrieved successfully', users));
+      }
     } catch (error) {
       res.status(500).json({ success: false, message: 'Failed to retrieve users', data: null, errors: [(error as Error).message] });
     }

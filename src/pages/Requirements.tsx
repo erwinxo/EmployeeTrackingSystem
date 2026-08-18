@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 export default function Requirements() {
   const { user } = useAuth()
-  const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER'
+  const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'PROJECT_MANAGER'
 
   const [requirements, setRequirements] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
