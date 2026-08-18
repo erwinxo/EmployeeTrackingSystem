@@ -27,12 +27,12 @@ export class UserController {
         });
         const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
 
-        // Find users matching those assignees or the PM themselves
+        // Find users matching project assignment, task assignees, or the PM themselves
         const users = await prisma.user.findMany({
           where: {
             OR: [
+              { projectId: { in: projectIds } },
               { fullName: { in: assignees as string[] } },
-              { role: 'EMPLOYEE' },
               { id: userId }
             ]
           },

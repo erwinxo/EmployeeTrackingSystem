@@ -61,6 +61,7 @@ export default function Employees() {
         avatar: AVATARS[idx % AVATARS.length],
         department: u.department || 'Engineering',
         isActive: u.isActive ?? true,
+        projectId: u.projectId,
       }))
       setEmployees(mapped)
     } catch (error) {
@@ -371,11 +372,22 @@ export default function Employees() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-3.5 pt-3 border-t border-border/40">
-                    <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                      Assigned Tasks ({tasks.filter(t => t.assignee === emp.name).length})
-                    </h4>
+                  <div className="mt-3.5 pt-3 border-t border-border/40 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] bg-secondary/40 border border-border/60 rounded-lg px-2.5 py-1">
+                      <span className="font-semibold text-muted-foreground uppercase text-[8px]">Project</span>
+                      {(() => {
+                        const empProj = projects.find(p => p.id === emp.projectId);
+                        return empProj ? (
+                          <span className="font-bold text-foreground truncate max-w-[130px]">{empProj.name}</span>
+                        ) : (
+                          <span className="italic text-muted-foreground/60">No Project Assigned</span>
+                        );
+                      })()}
+                    </div>
                     <div className="space-y-1">
+                      <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Assigned Tasks ({tasks.filter(t => t.assignee === emp.name).length})
+                      </h4>
                       {tasks.filter(t => t.assignee === emp.name).slice(0, 3).map(t => (
                         <div key={t.id} className="flex items-center justify-between text-[11px] bg-secondary/30 border border-border/50 rounded-lg px-2.5 py-1">
                           <span className="font-semibold text-foreground truncate max-w-[150px]">{t.title}</span>
