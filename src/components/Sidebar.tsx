@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks'
 import {
@@ -18,12 +17,13 @@ import { cn } from '../utils'
 interface SidebarProps {
   mobileOpen: boolean
   setMobileOpen: (open: boolean) => void
+  collapsed: boolean
+  setCollapsed: (collapsed: boolean) => void
 }
 
-export function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
+export function Sidebar({ mobileOpen, setMobileOpen, collapsed, setCollapsed }: SidebarProps) {
   const { user, logout } = useAuth()
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
 
   if (!user) return null
 

@@ -6,9 +6,10 @@ import { cn } from '../utils'
 interface NavbarProps {
   visible: boolean
   setMobileOpen: (open: boolean) => void
+  sidebarCollapsed?: boolean
 }
 
-export function Navbar({ visible, setMobileOpen }: NavbarProps) {
+export function Navbar({ visible, setMobileOpen, sidebarCollapsed }: NavbarProps) {
   const { user } = useAuth()
   const { theme, setTheme } = useTheme()
   const location = useLocation()
@@ -28,8 +29,9 @@ export function Navbar({ visible, setMobileOpen }: NavbarProps) {
   return (
     <header
       className={cn(
-        "flex h-16 items-center justify-between border border-border bg-card/85 backdrop-blur-md px-6 rounded-2xl sticky top-2 z-30 transition-all duration-300 shadow-md",
-        visible ? "translate-y-0 opacity-100" : "-translate-y-24 opacity-0 pointer-events-none"
+        "flex h-16 items-center justify-between border border-border px-6 rounded-2xl sticky top-2 z-30 transition-all duration-300 shadow-md",
+        visible ? "translate-y-0 opacity-100" : "-translate-y-24 opacity-0 pointer-events-none",
+        !sidebarCollapsed ? "bg-accent/40 border-primary/20 shadow-lg" : "bg-card/85 backdrop-blur-md"
       )}
     >
       <div className="flex items-center gap-4">
@@ -88,7 +90,10 @@ export function Navbar({ visible, setMobileOpen }: NavbarProps) {
         </div>
 
         {/* User Info Avatar */}
-        <div className="flex items-center gap-2 pl-2 border-l border-border">
+        <div className={cn(
+          "flex items-center gap-2 pl-2 border-l border-border transition-all duration-300",
+          !sidebarCollapsed ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
+        )}>
           <img
             src={user.avatar || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238696a0'><rect width='24' height='24' fill='%23e9edef'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>"}
             alt={user.name}

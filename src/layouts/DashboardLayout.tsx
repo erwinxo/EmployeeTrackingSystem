@@ -9,6 +9,7 @@ export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [navVisible, setNavVisible] = useState(true)
   const [lastScrollTop, setLastScrollTop] = useState(0)
+  const [collapsed, setCollapsed] = useState(false)
 
   if (isLoading) {
     return (
@@ -39,7 +40,12 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Collapsible Sidebar */}
-      <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      <Sidebar
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+      />
 
       {/* Main Content Pane */}
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -50,7 +56,11 @@ export function DashboardLayout() {
         >
           <div className="mx-auto max-w-7xl relative space-y-6">
             {/* Glassmorphic Floating Navbar */}
-            <Navbar visible={navVisible} setMobileOpen={setMobileOpen} />
+            <Navbar
+              visible={navVisible}
+              setMobileOpen={setMobileOpen}
+              sidebarCollapsed={collapsed}
+            />
             <div className="pt-2">
               <Outlet />
             </div>
