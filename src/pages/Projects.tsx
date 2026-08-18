@@ -129,6 +129,18 @@ export default function Projects() {
     }
   }
 
+  const handleDeleteTaskFromProject = async (taskId: string) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return
+    try {
+      await api.delete(`/tasks/${taskId}`)
+      toast.success('Task deleted successfully')
+      fetchProjects()
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      toast.error('Failed to delete task')
+    }
+  }
+
   const openEditModal = (proj: any) => {
     setEditingId(proj.id)
     setName(proj.name)
@@ -465,7 +477,17 @@ export default function Projects() {
                     {projects.find(p => p.id === editingId)?.tasks.map((task: any) => (
                       <div key={task.id} className="flex justify-between items-center text-xs p-1.5 rounded-lg bg-secondary/35 border border-border/40">
                         <span className="font-semibold text-foreground truncate max-w-[180px]">{task.title}</span>
-                        <span className="text-[9px] text-muted-foreground uppercase">{task.status}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-muted-foreground uppercase">{task.status}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTaskFromProject(task.id)}
+                            className="p-1 rounded text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer flex items-center justify-center"
+                            title="Delete Task"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
