@@ -18,7 +18,7 @@ export class UserController {
 
   async create(req: Request, res: Response): Promise<void> {
     try {
-      const { fullName, email, password, role, department } = req.body;
+      const { fullName, email, password, role, department, taskIds } = req.body;
       const hashedPassword = await bcrypt.hash(password || 'Default123!', 10);
       const user = await userRepository.createUser({
         fullName,
@@ -27,6 +27,15 @@ export class UserController {
         role: role || 'EMPLOYEE',
         department,
       });
+
+      // Update task assignees
+      if (taskIds && Array.isArray(taskIds) && taskIds.length > 0) {
+        await prisma.task.updateMany({
+          where: { id: { in: taskIds } },
+          data: { assignee: fullName },
+        });
+      }
+
       // Omit password from response
       const { password: _, ...userWithoutPassword } = user;
       res.status(201).json(successResponse('User created successfully', userWithoutPassword));
@@ -38,7 +47,17 @@ export class UserController {
   async update(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
-      const { fullName, email, role, isActive, department } = req.body;
+      const { fullName, email, role, isActive, department, taskIds } = req.body;
+
+      // Get old user details to unassign previous tasks
+      const oldUser = await prisma.user.findUnique({ where: { id } });
+      if (oldUser) {
+        await prisma.task.updateMany({
+          where: { assignee: oldUser.fullName },
+          data: { assignee: null },
+        });
+      }
+
       const updated = await userRepository.updateUser(id, {
         fullName,
         email,
@@ -46,6 +65,15 @@ export class UserController {
         isActive,
         department,
       });
+
+      // Assign new tasks
+      if (taskIds && Array.isArray(taskIds) && taskIds.length > 0) {
+        await prisma.task.updateMany({
+          where: { id: { in: taskIds } },
+          data: { assignee: fullName },
+        });
+      }
+
       res.status(200).json(successResponse('User updated successfully', updated));
     } catch (error) {
       res.status(400).json({ success: false, message: 'Failed to update user', data: null, errors: [(error as Error).message] });
@@ -55,6 +83,13 @@ export class UserController {
   async remove(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (user) {
+        await prisma.task.updateMany({
+          where: { assignee: user.fullName },
+          data: { assignee: null },
+        });
+      }
       await userRepository.deleteUser(id);
       res.status(200).json(successResponse('User deleted successfully', { id }));
     } catch (error) {

@@ -11,7 +11,7 @@ export class TimeLogController {
         throw new AppError('Unauthorized', 401);
       }
 
-      const { type } = req.body;
+      const { type, notes } = req.body;
 
       // Determine new user status
       let newStatus = 'OFF_WORK';
@@ -50,6 +50,7 @@ export class TimeLogController {
           data: {
             userId,
             type,
+            notes,
           },
         }),
       ]);

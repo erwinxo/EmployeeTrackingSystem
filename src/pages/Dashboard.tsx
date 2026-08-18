@@ -15,6 +15,7 @@ import {
   FileDown,
   Calendar,
   Sparkles,
+  X,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import api from '../services/api'
@@ -106,6 +107,12 @@ export default function Dashboard() {
   // Status & Time Logging State
   const [todayLogs, setTodayLogs] = useState<any[]>([])
   const [currentStatus, setCurrentStatus] = useState<string>(user?.currentStatus || 'OFF_WORK')
+  
+  // Checkout Modal State
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false)
+  const [checkoutNotes, setCheckoutNotes] = useState('')
+  const [myActiveTasks, setMyActiveTasks] = useState<any[]>([])
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([])
   const [durations, setDurations] = useState({
     workHours: 0,
     breakHours: 0,
@@ -208,6 +215,48 @@ export default function Dashboard() {
       await fetchTeamActivity()
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to update clock status'
+      toast.error(msg)
+    }
+  }
+
+  const handleCheckoutClick = () => {
+    const activeTasks = tasks.filter(t => t.assignee === user?.name && t.status !== 'Completed' && t.status !== 'FINISHED')
+    setMyActiveTasks(activeTasks)
+    setCompletedTaskIds([])
+    setCheckoutNotes('')
+    setIsCheckoutModalOpen(true)
+  }
+
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      // 1. Submit checkout time log with notes
+      const res = await api.post('/time-logs', {
+        type: 'CHECK_OUT',
+        notes: checkoutNotes
+      })
+
+      // 2. Concurrently mark selected tasks as Completed
+      if (completedTaskIds.length > 0) {
+        await Promise.all(
+          completedTaskIds.map(taskId =>
+            api.put(`/tasks/${taskId}`, { status: 'Completed' })
+          )
+        )
+      }
+
+      const newStat = res.data.data.status
+      setCurrentStatus(newStat)
+      updateUser({ currentStatus: newStat })
+      toast.success('Shift checked out. Daily tasks review saved successfully.')
+      setIsCheckoutModalOpen(false)
+      
+      // Refresh all
+      await fetchTodayLogs()
+      await fetchTeamActivity()
+      await fetchDashboardData()
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to check out'
       toast.error(msg)
     }
   }
@@ -477,7 +526,7 @@ export default function Dashboard() {
                   Go to Lunch
                 </button>
                 <button
-                  onClick={() => handleStatusChange('CHECK_OUT')}
+                  onClick={handleCheckoutClick}
                   className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-rose-500/25 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
                 >
                   Check Out Shift
@@ -841,6 +890,11 @@ export default function Dashboard() {
                          log.type === 'LUNCH_START' ? 'Went to lunch' :
                          'Resumed work from lunch'}
                       </p>
+                      {log.notes && (
+                        <div className="mt-1.5 p-2 rounded-lg bg-secondary/60 border border-border/50 max-w-[240px] italic text-[10px] text-foreground leading-normal">
+                          Daily Review: "{log.notes}"
+                        </div>
+                      )}
                       <span className="text-[9px] text-muted-foreground/60 mt-1 block">
                         {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
@@ -952,6 +1006,124 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Shift Checkout & Task Review Modal */}
+      {isCheckoutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-3xl border border-border/40 bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-left">
+            <div className="flex items-center justify-between border-b border-border/40 pb-3">
+              <h2 className="text-md font-bold text-foreground flex items-center gap-2">
+                <Clock className="h-5 w-5 text-rose-500" />
+                <span>Shift End Review</span>
+              </h2>
+              <button
+                onClick={() => setIsCheckoutModalOpen(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCheckoutSubmit} className="mt-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Daily Shift Summary / Review
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Summarize what you accomplished today..."
+                  value={checkoutNotes}
+                  onChange={(e) => setCheckoutNotes(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Active Task Status Update
+                </label>
+                <p className="text-[10px] text-muted-foreground">
+                  Select which of your active tasks were completed today:
+                </p>
+                <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-44 overflow-y-auto">
+                  {myActiveTasks.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-4 text-center italic">
+                      No active tasks currently assigned to you.
+                    </p>
+                  ) : (
+                    myActiveTasks.map((task) => {
+                      const isSelected = completedTaskIds.includes(task.id)
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-start justify-between p-3 hover:bg-secondary/20 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0 pr-4">
+                            <p className="text-xs font-semibold text-foreground truncate">
+                              {task.title}
+                            </p>
+                            <span className="inline-block mt-1 text-[8px] font-bold uppercase text-muted-foreground bg-secondary px-1.5 py-0.2 rounded border border-border">
+                              {task.project?.name || 'No Project'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCompletedTaskIds(completedTaskIds.filter(id => id !== task.id))}
+                              className={cn(
+                                "px-2 py-1 rounded-lg text-[9px] font-bold border transition-all cursor-pointer",
+                                !isSelected
+                                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20 shadow-sm"
+                                  : "bg-secondary text-muted-foreground border-border hover:bg-accent/40"
+                              )}
+                            >
+                              Still Left (To-Do)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!isSelected) {
+                                  setCompletedTaskIds([...completedTaskIds, task.id])
+                                }
+                              }}
+                              className={cn(
+                                "px-2 py-1 rounded-lg text-[9px] font-bold border transition-all cursor-pointer",
+                                isSelected
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-sm"
+                                  : "bg-secondary text-muted-foreground border-border hover:bg-accent/40"
+                              )}
+                            >
+                              Completed
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCheckoutModalOpen(false)}
+                  className="rounded-xl border border-border hover:bg-secondary text-foreground px-4 py-2.5 text-xs font-bold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 text-xs font-bold shadow-lg shadow-rose-500/20 transition-all active:scale-95"
+                >
+                  Confirm & Check Out
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
