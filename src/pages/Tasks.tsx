@@ -11,6 +11,7 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
   const [requirements, setRequirements] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
   // Modals
@@ -68,14 +69,16 @@ export default function Tasks() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [tasksRes, projectsRes, reqsRes] = await Promise.all([
+      const [tasksRes, projectsRes, reqsRes, usersRes] = await Promise.all([
         api.get('/tasks'),
         api.get('/projects'),
         api.get('/requirements'),
+        api.get('/users'),
       ])
       setTasks(tasksRes.data.data)
       setProjects(projectsRes.data.data)
       setRequirements(reqsRes.data.data)
+      setUsers(usersRes.data.data)
       if (projectsRes.data.data.length > 0) {
         setProjectId(projectsRes.data.data[0].id)
       }
@@ -419,13 +422,18 @@ export default function Tasks() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assignee Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. John Doe"
+                  <select
                     value={assignee}
                     onChange={(e) => setAssignee(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground"
-                  />
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.filter(u => u.role !== 'ADMIN').map((u) => (
+                      <option key={u.id} value={u.fullName || u.name}>
+                        {u.fullName || u.name} ({u.department || 'General'})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
@@ -524,13 +532,18 @@ export default function Tasks() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Assignee Name</label>
-                  <input
-                    type="text"
-                    required
+                  <select
                     value={assignee}
                     onChange={(e) => setAssignee(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3.5 text-xs outline-none focus:border-primary transition-all text-foreground"
-                  />
+                    className="w-full rounded-xl border border-border bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.filter(u => u.role !== 'ADMIN').map((u) => (
+                      <option key={u.id} value={u.fullName || u.name}>
+                        {u.fullName || u.name} ({u.department || 'General'})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
