@@ -326,30 +326,75 @@ export default function Employees() {
                   </span>
                 </div>
 
-                {/* Assigned Tasks List */}
-                <div className="mt-3.5 pt-3 border-t border-border/40">
-                  <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    Assigned Tasks ({tasks.filter(t => t.assignee === emp.name).length})
-                  </h4>
-                  <div className="space-y-1">
-                    {tasks.filter(t => t.assignee === emp.name).slice(0, 3).map(t => (
-                      <div key={t.id} className="flex items-center justify-between text-[11px] bg-secondary/30 border border-border/50 rounded-lg px-2 py-1">
-                        <span className="font-semibold text-foreground truncate max-w-[150px]">{t.title}</span>
-                        <span className="text-[8px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded border border-primary/10 capitalize">
-                          {t.status.toLowerCase().replace('_', ' ')}
-                        </span>
-                      </div>
-                    ))}
-                    {tasks.filter(t => t.assignee === emp.name).length > 3 && (
-                      <p className="text-[9px] text-muted-foreground pl-1">
-                        + {tasks.filter(t => t.assignee === emp.name).length - 3} more tasks
-                      </p>
-                    )}
-                    {tasks.filter(t => t.assignee === emp.name).length === 0 && (
-                      <p className="text-[10px] text-muted-foreground italic pl-1">No tasks assigned</p>
-                    )}
+                {/* Role-Specific Scope & Assignment Display */}
+                {emp.role === 'PROJECT_MANAGER' ? (
+                  <div className="mt-3.5 pt-3 border-t border-border/40">
+                    <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Assigned Project Scope
+                    </h4>
+                    {(() => {
+                      const pmProj = projects.find(p => p.projectManagerId === emp.id);
+                      return pmProj ? (
+                        <div className="flex items-center justify-between text-[11px] bg-primary/5 border border-primary/20 rounded-lg px-2.5 py-1.5">
+                          <span className="font-semibold text-primary truncate">{pmProj.name}</span>
+                          <span className="text-[8px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">
+                            PM
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/60 italic pl-1">No project assigned</p>
+                      );
+                    })()}
                   </div>
-                </div>
+                ) : emp.role === 'MANAGER' ? (
+                  <div className="mt-3.5 pt-3 border-t border-border/40">
+                    <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Assigned Scope
+                    </h4>
+                    <div className="flex items-center justify-between text-[11px] bg-sky-500/5 border border-sky-500/20 rounded-lg px-2.5 py-1.5">
+                      <span className="font-semibold text-sky-500 truncate">All Projects (Default)</span>
+                      <span className="text-[8px] font-bold bg-sky-500/10 text-sky-500 px-1.5 py-0.5 rounded border border-sky-500/20">
+                        MANAGER
+                      </span>
+                    </div>
+                  </div>
+                ) : emp.role === 'ADMIN' ? (
+                  <div className="mt-3.5 pt-3 border-t border-border/40">
+                    <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      System Scope
+                    </h4>
+                    <div className="flex items-center justify-between text-[11px] bg-rose-500/5 border border-rose-500/20 rounded-lg px-2.5 py-1.5">
+                      <span className="font-semibold text-rose-500 truncate">Global System (Owner)</span>
+                      <span className="text-[8px] font-bold bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded border border-rose-500/20">
+                        ADMIN
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3.5 pt-3 border-t border-border/40">
+                    <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Assigned Tasks ({tasks.filter(t => t.assignee === emp.name).length})
+                    </h4>
+                    <div className="space-y-1">
+                      {tasks.filter(t => t.assignee === emp.name).slice(0, 3).map(t => (
+                        <div key={t.id} className="flex items-center justify-between text-[11px] bg-secondary/30 border border-border/50 rounded-lg px-2.5 py-1">
+                          <span className="font-semibold text-foreground truncate max-w-[150px]">{t.title}</span>
+                          <span className="text-[8px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded border border-primary/10 capitalize">
+                            {t.status.toLowerCase().replace('_', ' ')}
+                          </span>
+                        </div>
+                      ))}
+                      {tasks.filter(t => t.assignee === emp.name).length > 3 && (
+                        <p className="text-[9px] text-muted-foreground pl-1">
+                          + {tasks.filter(t => t.assignee === emp.name).length - 3} more tasks
+                        </p>
+                      )}
+                      {tasks.filter(t => t.assignee === emp.name).length === 0 && (
+                        <p className="text-[10px] text-muted-foreground/60 italic pl-1">No tasks assigned</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {isAdmin && (
