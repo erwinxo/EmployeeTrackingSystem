@@ -119,7 +119,7 @@ export default function Employees() {
         role,
         department,
         taskIds: role === 'EMPLOYEE' ? selectedTaskIds : [],
-        projectId: role === 'PROJECT_MANAGER' ? selectedProjectId : undefined,
+        projectId: (role === 'EMPLOYEE' || role === 'PROJECT_MANAGER') ? selectedProjectId : undefined,
       })
       toast.success('Employee created successfully')
       setIsAddModalOpen(false)
@@ -144,7 +144,7 @@ export default function Employees() {
         department,
         isActive,
         taskIds: role === 'EMPLOYEE' ? selectedTaskIds : [],
-        projectId: role === 'PROJECT_MANAGER' ? selectedProjectId : undefined,
+        projectId: (role === 'EMPLOYEE' || role === 'PROJECT_MANAGER') ? selectedProjectId : undefined,
       })
       toast.success('Employee updated successfully')
       setIsEditModalOpen(false)
