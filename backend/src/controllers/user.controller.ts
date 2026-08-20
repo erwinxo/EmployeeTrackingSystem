@@ -49,6 +49,24 @@ export class UserController {
           }
         });
         res.status(200).json(successResponse('Users retrieved successfully', users));
+      } else if (userRole === 'MANAGER') {
+        const users = await prisma.user.findMany({
+          where: {
+            role: { in: ['PROJECT_MANAGER', 'EMPLOYEE'] }
+          },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+            department: true,
+            isActive: true,
+            projectId: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        });
+        res.status(200).json(successResponse('Users retrieved successfully', users));
       } else {
         const users = await userRepository.findAll();
         res.status(200).json(successResponse('Users retrieved successfully', users));
