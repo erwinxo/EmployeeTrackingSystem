@@ -22,6 +22,7 @@ export class UserRepository {
         department: true,
         isActive: true,
         projectId: true,
+        currentStatus: true,
         createdAt: true,
         updatedAt: true
       }
@@ -38,6 +39,7 @@ export class UserRepository {
         department: true,
         isActive: true,
         projectId: true,
+        currentStatus: true,
         createdAt: true,
         updatedAt: true
       }
