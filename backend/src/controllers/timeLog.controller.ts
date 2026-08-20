@@ -76,11 +76,19 @@ export class TimeLogController {
         throw new AppError('Unauthorized', 401);
       }
 
-      const startOfToday = new Date();
+      const { start, end } = req.query;
+      let startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
 
-      const endOfToday = new Date();
+      let endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
+
+      if (start && typeof start === 'string') {
+        startOfToday = new Date(start);
+      }
+      if (end && typeof end === 'string') {
+        endOfToday = new Date(end);
+      }
 
       const logs = await prisma.timeLog.findMany({
         where: {
@@ -114,11 +122,19 @@ export class TimeLogController {
         throw new AppError('Access denied', 403);
       }
 
-      const startOfToday = new Date();
+      const { start, end } = req.query;
+      let startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
 
-      const endOfToday = new Date();
+      let endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
+
+      if (start && typeof start === 'string') {
+        startOfToday = new Date(start);
+      }
+      if (end && typeof end === 'string') {
+        endOfToday = new Date(end);
+      }
 
       let userFilter: any = {};
       if (userRole === 'PROJECT_MANAGER' && userId) {
@@ -188,11 +204,19 @@ export class TimeLogController {
         throw new AppError('Access denied', 403);
       }
 
-      const startOfToday = new Date();
+      const { start, end } = req.query;
+      let startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
 
-      const endOfToday = new Date();
+      let endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
+
+      if (start && typeof start === 'string') {
+        startOfToday = new Date(start);
+      }
+      if (end && typeof end === 'string') {
+        endOfToday = new Date(end);
+      }
 
       let logFilter: any = {
         timestamp: {

@@ -127,7 +127,11 @@ export default function Dashboard() {
 
   const fetchTodayLogs = async () => {
     try {
-      const res = await api.get('/time-logs/today')
+      const start = new Date()
+      start.setHours(0, 0, 0, 0)
+      const end = new Date()
+      end.setHours(23, 59, 59, 999)
+      const res = await api.get(`/time-logs/today?start=${start.toISOString()}&end=${end.toISOString()}`)
       setTodayLogs(res.data.data)
     } catch (err) {
       console.error('Failed to fetch today time logs:', err)
@@ -137,9 +141,13 @@ export default function Dashboard() {
   const fetchTeamActivity = async () => {
     if (user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'PROJECT_MANAGER') {
       try {
+        const start = new Date()
+        start.setHours(0, 0, 0, 0)
+        const end = new Date()
+        end.setHours(23, 59, 59, 999)
         const [statusRes, feedRes] = await Promise.all([
-          api.get('/time-logs/users'),
-          api.get('/time-logs/feed'),
+          api.get(`/time-logs/users?start=${start.toISOString()}&end=${end.toISOString()}`),
+          api.get(`/time-logs/feed?start=${start.toISOString()}&end=${end.toISOString()}`),
         ])
         setTeamStatuses(statusRes.data.data)
         setTeamFeed(feedRes.data.data)
