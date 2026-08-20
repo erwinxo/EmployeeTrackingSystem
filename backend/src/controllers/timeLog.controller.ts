@@ -134,6 +134,7 @@ export class TimeLogController {
         const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
         userFilter = {
           OR: [
+            { projectId: { in: projectIds } },
             { fullName: { in: assignees as string[] } },
             { id: userId }
           ]
@@ -213,6 +214,7 @@ export class TimeLogController {
         const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
         logFilter.user = {
           OR: [
+            { projectId: { in: projectIds } },
             { fullName: { in: assignees as string[] } },
             { id: userId }
           ]
