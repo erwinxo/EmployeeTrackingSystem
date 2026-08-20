@@ -275,4 +275,87 @@ export class TimeLogController {
       });
     }
   }
+
+  async getUserStats(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        throw new AppError('Unauthorized', 401);
+      }
+
+      const offsetMinutes = parseInt(req.query.timezoneOffset?.toString() || '0', 10);
+
+      const logs = await prisma.timeLog.findMany({
+        where: { userId },
+        orderBy: { timestamp: 'asc' },
+      });
+
+      const logsByDate: Record<string, any[]> = {};
+      logs.forEach((log) => {
+        const logTime = new Date(log.timestamp);
+        const localTime = new Date(logTime.getTime() + offsetMinutes * 60 * 1000);
+        const dateStr = localTime.toISOString().split('T')[0];
+
+        if (!logsByDate[dateStr]) {
+          logsByDate[dateStr] = [];
+        }
+        logsByDate[dateStr].push(log);
+      });
+
+      const stats: Record<string, { work: number; breaks: number; lunch: number }> = {};
+      Object.keys(logsByDate).forEach((dateStr) => {
+        const dayLogs = logsByDate[dateStr];
+        
+        let workMs = 0;
+        let breakMs = 0;
+        let lunchMs = 0;
+
+        if (dayLogs.length > 0) {
+          const firstCheckIn = new Date(dayLogs[0].timestamp);
+          let lastEventTime = firstCheckIn;
+          let previousState = 'OFF_WORK';
+
+          dayLogs.forEach((log) => {
+            const logTime = new Date(log.timestamp);
+            const diff = logTime.getTime() - lastEventTime.getTime();
+
+            if (previousState === 'ACTIVE') {
+              workMs += diff;
+            } else if (previousState === 'BREAK') {
+              breakMs += diff;
+            } else if (previousState === 'LUNCH') {
+              lunchMs += diff;
+            }
+
+            if (log.type === 'CHECK_IN' || log.type === 'BREAK_END' || log.type === 'LUNCH_END') {
+              previousState = 'ACTIVE';
+            } else if (log.type === 'CHECK_OUT') {
+              previousState = 'OFF_WORK';
+            } else if (log.type === 'BREAK_START') {
+              previousState = 'BREAK';
+            } else if (log.type === 'LUNCH_START') {
+              previousState = 'LUNCH';
+            }
+
+            lastEventTime = logTime;
+          });
+        }
+
+        stats[dateStr] = {
+          work: Math.max(0, workMs / 1000 / 3600),
+          breaks: Math.max(0, breakMs / 1000 / 3600),
+          lunch: Math.max(0, lunchMs / 1000 / 3600),
+        };
+      });
+
+      res.status(200).json(successResponse('User stats fetched successfully', stats));
+    } catch (error) {
+      res.status((error as any).statusCode || 500).json({
+        success: false,
+        message: (error as Error).message || 'Failed to fetch user stats',
+        data: null,
+        errors: [(error as Error).message],
+      });
+    }
+  }
 }

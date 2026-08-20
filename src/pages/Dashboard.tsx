@@ -106,6 +106,7 @@ export default function Dashboard() {
 
   // Status & Time Logging State
   const [todayLogs, setTodayLogs] = useState<any[]>([])
+  const [dbStats, setDbStats] = useState<Record<string, any>>({})
   const [currentStatus, setCurrentStatus] = useState<string>(user?.currentStatus || 'OFF_WORK')
   
   // Checkout Modal State
@@ -171,14 +172,17 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
-      const [projRes, tasksRes, reqsRes] = await Promise.all([
+      const offset = -new Date().getTimezoneOffset()
+      const [projRes, tasksRes, reqsRes, statsRes] = await Promise.all([
         api.get('/projects'),
         api.get('/tasks'),
         api.get('/requirements'),
+        api.get(`/time-logs/stats?timezoneOffset=${offset}`),
       ])
       setProjects(projRes.data.data)
       setTasks(tasksRes.data.data)
       setRequirements(reqsRes.data.data)
+      setDbStats(statsRes.data.data)
 
       if (user?.role === 'ADMIN') {
         const usersRes = await api.get('/users')
@@ -310,76 +314,68 @@ export default function Dashboard() {
     ].join(':');
   };
 
-  // Weekly Activity Data (5 Weeks)
-  const weeklyData = [
-    {
-      weekRange: 'Jul 28 - Aug 03 (Current Week)',
-      days: [
-        { day: 'Mon', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Tue', work: 7.5, breaks: 1.5, lunch: 1.0 },
-        { day: 'Wed', work: 8.5, breaks: 0.5, lunch: 1.0 },
-        { day: 'Thu', work: 6.0, breaks: 2.0, lunch: 1.0 },
-        { day: 'Fri', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Sat', work: 2.0, breaks: 0.0, lunch: 0.0 },
-        { day: 'Sun', work: 0.0, breaks: 0.0, lunch: 0.0 },
-      ]
-    },
-    {
-      weekRange: 'Jul 21 - Jul 27 (1 Week Ago)',
-      days: [
-        { day: 'Mon', work: 7.8, breaks: 1.2, lunch: 1.0 },
-        { day: 'Tue', work: 8.2, breaks: 0.8, lunch: 1.0 },
-        { day: 'Wed', work: 7.5, breaks: 1.5, lunch: 1.0 },
-        { day: 'Thu', work: 9.0, breaks: 0.5, lunch: 1.5 },
-        { day: 'Fri', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Sat', work: 0.0, breaks: 0.0, lunch: 0.0 },
-        { day: 'Sun', work: 0.0, breaks: 0.0, lunch: 0.0 },
-      ]
-    },
-    {
-      weekRange: 'Jul 14 - Jul 20 (2 Weeks Ago)',
-      days: [
-        { day: 'Mon', work: 8.5, breaks: 0.5, lunch: 1.0 },
-        { day: 'Tue', work: 8.0, breaks: 1.0, lunch: 1.5 },
-        { day: 'Wed', work: 6.5, breaks: 2.0, lunch: 1.0 },
-        { day: 'Thu', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Fri', work: 7.8, breaks: 1.2, lunch: 1.0 },
-        { day: 'Sat', work: 1.5, breaks: 0.5, lunch: 0.0 },
-        { day: 'Sun', work: 0.0, breaks: 0.0, lunch: 0.0 },
-      ]
-    },
-    {
-      weekRange: 'Jul 07 - Jul 13 (3 Weeks Ago)',
-      days: [
-        { day: 'Mon', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Tue', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Wed', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Thu', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Fri', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Sat', work: 0.0, breaks: 0.0, lunch: 0.0 },
-        { day: 'Sun', work: 0.0, breaks: 0.0, lunch: 0.0 },
-      ]
-    },
-    {
-      weekRange: 'Jun 30 - Jul 06 (4 Weeks Ago)',
-      days: [
-        { day: 'Mon', work: 7.5, breaks: 1.5, lunch: 1.0 },
-        { day: 'Tue', work: 8.5, breaks: 0.5, lunch: 1.0 },
-        { day: 'Wed', work: 7.0, breaks: 2.0, lunch: 1.0 },
-        { day: 'Thu', work: 8.0, breaks: 1.0, lunch: 1.0 },
-        { day: 'Fri', work: 9.0, breaks: 0.0, lunch: 1.0 },
-        { day: 'Sat', work: 1.0, breaks: 1.0, lunch: 0.0 },
-        { day: 'Sun', work: 0.0, breaks: 0.0, lunch: 0.0 },
-      ]
+  // Dynamically compute the last 5 weeks Monday-Sunday based on user's database stats
+  const getDynamicWeeklyData = () => {
+    const weeklyDataList = []
+    const currentMonday = new Date()
+    const day = currentMonday.getDay()
+    const diff = currentMonday.getDate() - day + (day === 0 ? -6 : 1)
+    currentMonday.setDate(diff)
+    currentMonday.setHours(0, 0, 0, 0)
+
+    for (let i = 4; i >= 0; i--) {
+      const weekMonday = new Date(currentMonday)
+      weekMonday.setDate(weekMonday.getDate() - i * 7)
+
+      const weekSunday = new Date(weekMonday)
+      weekSunday.setDate(weekSunday.getDate() + 6)
+
+      const formatMonthDay = (date: Date) => {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        return `${months[date.getMonth()]} ${date.getDate().toString().padStart(2, '0')}`
+      }
+
+      let weekRange = `${formatMonthDay(weekMonday)} - ${formatMonthDay(weekSunday)}`
+      if (i === 0) {
+        weekRange += ' (Current Week)'
+      } else {
+        weekRange += ` (${i} Wk${i > 1 ? 's' : ''} Ago)`
+      }
+
+      const days = []
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+      for (let d = 0; d < 7; d++) {
+        const dayDate = new Date(weekMonday)
+        dayDate.setDate(dayDate.getDate() + d)
+        const dateStr = `${dayDate.getFullYear()}-${(dayDate.getMonth() + 1).toString().padStart(2, '0')}-${dayDate.getDate().toString().padStart(2, '0')}`
+
+        const dayStats = dbStats[dateStr] || { work: 0, breaks: 0, lunch: 0 }
+        days.push({
+          day: dayNames[d],
+          work: dayStats.work,
+          breaks: dayStats.breaks,
+          lunch: dayStats.lunch
+        })
+      }
+
+      weeklyDataList.push({
+        weekRange,
+        days
+      })
     }
-  ]
+
+    return weeklyDataList
+  }
+
+  const weeklyData = getDynamicWeeklyData()
 
   // Overriding today's data in the current week representation
   const dayOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayDayName = dayOfWeekNames[new Date().getDay()];
 
   const adjustedWeeklyData = weeklyData.map((week, idx) => {
-    if (idx === 0) { // Current Week
+    if (idx === 4) { // Current Week (last element)
       return {
         ...week,
         days: week.days.map((d) => {
