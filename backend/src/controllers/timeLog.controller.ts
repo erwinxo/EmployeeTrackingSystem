@@ -40,20 +40,19 @@ export class TimeLogController {
         throw new AppError('User not found', 404);
       }
 
-      // Create log and update user status in a transaction
-      const [updatedUser, log] = await prisma.$transaction([
-        prisma.user.update({
-          where: { id: userId },
-          data: { currentStatus: newStatus },
-        }),
-        prisma.timeLog.create({
-          data: {
-            userId,
-            type,
-            notes,
-          },
-        }),
-      ]);
+      // Create log and update user status sequentially
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { currentStatus: newStatus },
+      });
+
+      const log = await prisma.timeLog.create({
+        data: {
+          userId,
+          type,
+          notes,
+        },
+      });
 
       res.status(200).json(successResponse('Status updated successfully', {
         status: updatedUser.currentStatus,
