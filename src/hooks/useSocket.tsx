@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './useAuth';
+import { STORAGE_KEYS } from '../constants';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -34,7 +35,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     if (!token) return;
 
     const socketUrl = getSocketUrl();
