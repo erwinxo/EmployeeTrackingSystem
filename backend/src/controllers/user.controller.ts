@@ -51,6 +51,7 @@ export class UserController {
             department: true,
             isActive: true,
             projectId: true,
+            currentStatus: true,
             createdAt: true,
             updatedAt: true
           }
@@ -69,6 +70,7 @@ export class UserController {
             department: true,
             isActive: true,
             projectId: true,
+            currentStatus: true,
             createdAt: true,
             updatedAt: true
           }
@@ -90,6 +92,7 @@ export class UserController {
               department: true,
               isActive: true,
               projectId: true,
+              currentStatus: true,
               createdAt: true,
               updatedAt: true
             }
@@ -107,6 +110,7 @@ export class UserController {
               department: true,
               isActive: true,
               projectId: true,
+              currentStatus: true,
               createdAt: true,
               updatedAt: true
             }

@@ -326,10 +326,18 @@ export default function Employees() {
                     {emp.department}
                   </span>
                   <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold border uppercase flex items-center gap-1 ${
-                    emp.isActive ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                    (emp.currentStatus || 'OFF_WORK') === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                    (emp.currentStatus || 'OFF_WORK') === 'BREAK' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                    (emp.currentStatus || 'OFF_WORK') === 'LUNCH' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                    'bg-neutral-500/10 text-muted-foreground border-border'
                   }`}>
-                    <span className={`h-1 w-1 rounded-full ${emp.isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                    {emp.isActive ? 'Active' : 'Inactive'}
+                    <span className={`h-1.5 w-1.5 rounded-full ${
+                      (emp.currentStatus || 'OFF_WORK') === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' :
+                      (emp.currentStatus || 'OFF_WORK') === 'BREAK' ? 'bg-rose-500 animate-pulse' :
+                      (emp.currentStatus || 'OFF_WORK') === 'LUNCH' ? 'bg-amber-500 animate-pulse' :
+                      'bg-neutral-400'
+                    }`} />
+                    {(emp.currentStatus || 'OFF_WORK').replace('_', ' ')}
                   </span>
                 </div>
 
