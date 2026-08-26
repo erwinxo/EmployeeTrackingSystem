@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronLeft,
   X,
+  MessageCircle,
 } from 'lucide-react'
 import { cn } from '../utils'
 
@@ -63,6 +64,12 @@ export function Sidebar({ mobileOpen, setMobileOpen, collapsed, setCollapsed }: 
       name: 'Reports',
       path: '/reports',
       icon: BarChart3,
+      roles: ['ADMIN', 'MANAGER', 'PROJECT_MANAGER', 'EMPLOYEE'],
+    },
+    {
+      name: 'Messages',
+      path: '/chat',
+      icon: MessageCircle,
       roles: ['ADMIN', 'MANAGER', 'PROJECT_MANAGER', 'EMPLOYEE'],
     },
     {

@@ -9,6 +9,8 @@ const controller = new UserController();
 router.get('/profile', authenticate, controller.getProfile.bind(controller));
 router.put('/profile', authenticate, controller.updateProfile.bind(controller));
 router.put('/change-password', authenticate, controller.changePassword.bind(controller));
+router.post('/public-key', authenticate, controller.savePublicKey.bind(controller));
+router.get('/:id/public-key', authenticate, controller.getPublicKey.bind(controller));
 
 // Only Admins can manage users/employees
 router.get('/', authenticate, authorize('ADMIN', 'MANAGER', 'PROJECT_MANAGER'), controller.list.bind(controller));

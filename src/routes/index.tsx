@@ -10,6 +10,7 @@ import Requirements from '../pages/Requirements'
 import Tasks from '../pages/Tasks'
 import Reports from '../pages/Reports'
 import Settings from '../pages/Settings'
+import Chat from '../pages/Chat'
 import NotFound from '../pages/NotFound'
 import { useAuth } from '../hooks'
 import type { UserRole } from '../types'
@@ -86,6 +87,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <Settings />,
+      },
+      {
+        path: 'chat',
+        element: <Chat />,
       },
     ],
   },

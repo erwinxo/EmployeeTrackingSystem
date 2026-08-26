@@ -99,10 +99,16 @@ export default function Settings() {
     }
   }
 
-  const handlePushAlertsToggle = (checked: boolean) => {
+  const handlePushAlertsToggle = async (checked: boolean) => {
     setPushAlerts(checked)
     localStorage.setItem('ets_push_alerts', String(checked))
-    toast.success(`Push alerts ${checked ? 'enabled' : 'disabled'}`)
+    try {
+      await api.put('/notifications/preferences', { pushEnabled: checked })
+      toast.success(`Push alerts ${checked ? 'enabled' : 'disabled'}`)
+    } catch (err) {
+      console.error('Failed to sync push preferences:', err)
+      toast.error('Failed to update notification preferences')
+    }
   }
 
   const handleCompactTablesToggle = (checked: boolean) => {

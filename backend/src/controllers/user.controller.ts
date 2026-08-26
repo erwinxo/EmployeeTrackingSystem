@@ -263,4 +263,43 @@ export class UserController {
       res.status(500).json({ success: false, message: 'Failed to change password', data: null, errors: [(error as Error).message] });
     }
   }
+
+  async savePublicKey(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized', data: null, errors: ['User not authenticated'] });
+        return;
+      }
+      const { ecdhPublicKey } = req.body;
+      if (!ecdhPublicKey) {
+        res.status(400).json({ success: false, message: 'Missing ECDH public key', data: null, errors: ['Public key is required'] });
+        return;
+      }
+      const key = await prisma.userPublicKey.upsert({
+        where: { userId },
+        update: { ecdhPublicKey },
+        create: { userId, ecdhPublicKey },
+      });
+      res.status(200).json(successResponse('Public key saved successfully', key));
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to save public key', data: null, errors: [(error as Error).message] });
+    }
+  }
+
+  async getPublicKey(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const key = await prisma.userPublicKey.findUnique({
+        where: { userId: id as string },
+      });
+      if (!key) {
+        res.status(404).json({ success: false, message: 'Public key not found for this user', data: null, errors: ['Key does not exist'] });
+        return;
+      }
+      res.status(200).json(successResponse('Public key retrieved successfully', key));
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to retrieve public key', data: null, errors: [(error as Error).message] });
+    }
+  }
 }
