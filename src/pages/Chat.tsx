@@ -15,6 +15,7 @@ import {
   MessageSquare,
   AlertTriangle,
   Info,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AudioRecorder } from '../components/AudioRecorder';
@@ -100,6 +101,7 @@ export default function Chat() {
   const [selectedGroupProject, setSelectedGroupProject] = useState('');
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [sidebarSearch, setSidebarSearch] = useState('');
 
   // Key Caches
   const sharedKeyCacheRef = useRef<Record<string, CryptoKey>>({});
@@ -655,6 +657,20 @@ export default function Chat() {
           )}
         </div>
 
+        {/* Sidebar Search Bar */}
+        <div className="px-4 pb-2.5 pt-1.5 border-b border-border bg-background/5">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search chat list..."
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              className="w-full bg-secondary border border-border rounded-xl pl-9 pr-3.5 py-2 text-xs outline-none focus:border-primary/50 text-foreground transition"
+            />
+          </div>
+        </div>
+
         {/* Scrollable list content */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {/* Direct Messages List */}
@@ -663,7 +679,9 @@ export default function Chat() {
               Direct Messages
             </div>
             <div className="space-y-1">
-              {users.map((u) => {
+              {users
+                .filter((u) => u.fullName.toLowerCase().includes(sidebarSearch.toLowerCase()))
+                .map((u) => {
                 const isActive = activeRecipient?.id === u.id;
                 return (
                   <button
@@ -711,7 +729,9 @@ export default function Chat() {
               Group Channels
             </div>
             <div className="space-y-1">
-              {groups.map((g) => {
+              {groups
+                .filter((g) => g.name.toLowerCase().includes(sidebarSearch.toLowerCase()))
+                .map((g) => {
                 const isActive = activeGroup?.id === g.id;
                 return (
                   <button
