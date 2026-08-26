@@ -33,8 +33,39 @@ export class ReportController {
       const taskWhere = userRole === 'PROJECT_MANAGER' && userId ? { project: { projectManagerId: userId } } : {};
       const requirementWhere = userRole === 'PROJECT_MANAGER' && userId ? { project: { projectManagerId: userId } } : {};
 
-      // Fetch active data
-      const [projects, tasks, requirements] = await Promise.all([
+      // Determine time log scoping boundaries
+      let timeLogWhere: any = {};
+      if (userRole === 'PROJECT_MANAGER' && userId) {
+        const myProjects = await prisma.project.findMany({
+          where: { projectManagerId: userId },
+          select: { id: true }
+        });
+        const projectIds = myProjects.map(p => p.id);
+        const myTasks = await prisma.task.findMany({
+          where: { projectId: { in: projectIds } },
+          select: { assignee: true }
+        });
+        const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
+        
+        timeLogWhere = {
+          user: {
+            OR: [
+              { projectId: { in: projectIds } },
+              { fullName: { in: assignees as string[] } },
+              { id: userId }
+            ]
+          }
+        };
+      } else if (userRole === 'MANAGER') {
+        timeLogWhere = {
+          user: {
+            role: { in: ['PROJECT_MANAGER', 'EMPLOYEE'] }
+          }
+        };
+      }
+
+      // Fetch active data concurrently
+      const [projects, tasks, requirements, timeLogs] = await Promise.all([
         prisma.project.findMany({
           where: projectWhere,
           include: { tasks: true, requirements: true },
@@ -46,6 +77,11 @@ export class ReportController {
         prisma.clientRequirement.findMany({
           where: requirementWhere,
           include: { project: true },
+        }),
+        prisma.timeLog.findMany({
+          where: timeLogWhere,
+          include: { user: true },
+          orderBy: { timestamp: 'desc' },
         }),
       ]);
 
@@ -70,6 +106,7 @@ export class ReportController {
         doc.text(`Total Active Projects: ${projects.length}`);
         doc.text(`Total Client Requirements: ${requirements.length}`);
         doc.text(`Total Workflow Tasks: ${tasks.length}`);
+        doc.text(`Total Registered Shift Logs: ${timeLogs.length}`);
         doc.moveDown(2);
 
         // Active Projects Details
@@ -90,6 +127,19 @@ export class ReportController {
             doc.text(`  Description: ${proj.description}`);
           }
           doc.moveDown(1);
+        }
+
+        // Attendance & Shift Time Logs
+        doc.addPage();
+        doc.fontSize(14).fillColor('#0f172a').text('3. Employee Shift Logging & Activity Logs', { underline: true });
+        doc.moveDown(0.5);
+
+        for (const log of timeLogs) {
+          const userName = log.user?.fullName || 'Unknown User';
+          const timestamp = new Date(log.timestamp).toLocaleString();
+          const type = log.type.replace('_', ' ');
+          const notesStr = log.notes ? ` (Notes: ${log.notes})` : '';
+          doc.fontSize(10).fillColor('#334155').text(`• [${timestamp}] ${userName} - ${type}${notesStr}`);
         }
 
         doc.end();
@@ -129,6 +179,15 @@ export class ReportController {
           const projectName = (r.project?.name || 'Unknown Project').replace(/"/g, '""');
           const createdAt = r.createdAt.toISOString();
           csvContent += `"REQUIREMENT","${title}","${desc}","${priority}","${projectName}","${createdAt}"\n`;
+        }
+
+        // 4. Time Logs rows
+        for (const log of timeLogs) {
+          const userName = (log.user?.fullName || 'Unknown User').replace(/"/g, '""');
+          const type = log.type;
+          const notes = (log.notes || '').replace(/"/g, '""');
+          const timestamp = log.timestamp.toISOString();
+          csvContent += `"TIME_LOG","${userName}","${notes}","${type}","","${timestamp}"\n`;
         }
 
         res.status(200).send(csvContent);
