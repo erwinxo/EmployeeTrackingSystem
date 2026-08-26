@@ -1,4 +1,4 @@
-import { useAuth, useTheme } from '../hooks'
+import { useAuth, useTheme, useSocket } from '../hooks'
 import { Menu, Sun, Moon, Laptop } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { cn } from '../utils'
@@ -12,6 +12,7 @@ interface NavbarProps {
 export function Navbar({ visible, setMobileOpen, sidebarCollapsed }: NavbarProps) {
   const { user } = useAuth()
   const { theme, setTheme } = useTheme()
+  const { isConnected } = useSocket()
   const location = useLocation()
 
   if (!user) return null
@@ -87,6 +88,14 @@ export function Navbar({ visible, setMobileOpen, sidebarCollapsed }: NavbarProps
           >
             <Laptop size={15} />
           </button>
+        </div>
+
+        {/* Connection status badge */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-secondary/30 border border-border/40 text-[9px] font-bold uppercase tracking-wider select-none shrink-0">
+          <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`} />
+          <span className={isConnected ? 'text-emerald-500/90' : 'text-amber-500/90'}>
+            {isConnected ? 'Sync Online' : 'Offline'}
+          </span>
         </div>
 
         {/* User Info Avatar */}

@@ -6,14 +6,16 @@ import { STORAGE_KEYS } from '../constants';
 interface SocketContextType {
   socket: Socket | null;
   onlineUsers: string[];
+  isConnected: boolean;
 }
 
-const SocketContext = createContext<SocketContextType>({ socket: null, onlineUsers: [] });
+const SocketContext = createContext<SocketContextType>({ socket: null, onlineUsers: [], isConnected: false });
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   const getSocketUrl = () => {
@@ -32,6 +34,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         setSocket(null);
       }
       setOnlineUsers([]);
+      setIsConnected(false);
       return;
     }
 
@@ -49,6 +52,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     socketInstance.on('connect', () => {
       console.log('Global presence socket connected');
+      setIsConnected(true);
+    });
+
+    socketInstance.on('disconnect', () => {
+      console.log('Global presence socket disconnected');
+      setIsConnected(false);
     });
 
     socketInstance.on('online_users_list', (onlineIds: string[]) => {
@@ -74,7 +83,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   return (
-    <SocketContext.Provider value={{ socket, onlineUsers }}>
+    <SocketContext.Provider value={{ socket, onlineUsers, isConnected }}>
       {children}
     </SocketContext.Provider>
   );

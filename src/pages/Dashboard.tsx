@@ -833,7 +833,7 @@ export default function Dashboard() {
 
       {/* Team Status and Activity Monitor for Managers */}
       {(user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'PROJECT_MANAGER') && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-4">
           {/* Team Status Grid */}
           <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col h-[400px]">
             <div className="flex items-center justify-between mb-4">
@@ -899,6 +899,89 @@ export default function Dashboard() {
               </table>
             </div>
           </div>
+
+          {/* Real-Time Team Attendance Donut/Radial gauge widget */}
+          {(() => {
+            const activeCount = teamStatuses.filter(m => m.currentStatus === 'ACTIVE').length;
+            const breakCount = teamStatuses.filter(m => m.currentStatus === 'BREAK').length;
+            const lunchCount = teamStatuses.filter(m => m.currentStatus === 'LUNCH').length;
+            const offCount = teamStatuses.filter(m => !m.currentStatus || m.currentStatus === 'OFF_WORK').length;
+            const totalCount = teamStatuses.length || 1;
+
+            const activePct = Math.round((activeCount / totalCount) * 100);
+            const breakPct = Math.round((breakCount / totalCount) * 100);
+            const lunchPct = Math.round((lunchCount / totalCount) * 100);
+            const offPct = Math.round((offCount / totalCount) * 100);
+
+            return (
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col h-[400px] items-center justify-between select-none">
+                <div className="w-full text-left">
+                  <h2 className="text-lg font-bold tracking-tight">Presence Overview</h2>
+                  <p className="text-xs text-muted-foreground">Aggregated staff state distribution.</p>
+                </div>
+
+                <div className="relative flex items-center justify-center my-2">
+                  <svg className="w-32 h-32 transform -rotate-90">
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="48"
+                      className="stroke-secondary"
+                      strokeWidth="8"
+                      fill="transparent"
+                    />
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="48"
+                      className="stroke-primary transition-all duration-500 ease-out"
+                      strokeWidth="8"
+                      strokeDasharray="301.6"
+                      strokeDashoffset={301.6 - (301.6 * activePct) / 100}
+                      strokeLinecap="round"
+                      fill="transparent"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-2xl font-black text-foreground">{activePct}%</span>
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Active Work</span>
+                  </div>
+                </div>
+
+                <div className="w-full space-y-2.5">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold">
+                      <span className="text-rose-500 uppercase">Short Break ({breakCount})</span>
+                      <span className="text-muted-foreground">{breakPct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                      <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${breakPct}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold">
+                      <span className="text-amber-500 uppercase">Lunch Break ({lunchCount})</span>
+                      <span className="text-muted-foreground">{lunchPct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${lunchPct}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold">
+                      <span className="text-muted-foreground uppercase">Off Work ({offCount})</span>
+                      <span className="text-muted-foreground">{offPct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                      <div className="h-full bg-border transition-all duration-500" style={{ width: `${offPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Real-time feed of today's activities */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col h-[400px]">

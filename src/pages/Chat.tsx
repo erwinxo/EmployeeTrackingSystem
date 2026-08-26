@@ -638,6 +638,72 @@ export default function Chat() {
     }
   };
 
+  const handleExportChat = () => {
+    if (messages.length === 0) {
+      toast.error('No conversation history to export');
+      return;
+    }
+
+    try {
+      const chatTitle = activeRecipient ? activeRecipient.fullName : (activeGroup?.name || 'Group');
+      let textContent = `==================================================\n`;
+      textContent += `ETS SECURE ENCRYPTED CHAT ARCHIVE TRANSCRIPT\n`;
+      textContent += `Channel: ${chatTitle}\n`;
+      textContent += `Exported on: ${new Date().toLocaleString()}\n`;
+      textContent += `==================================================\n\n`;
+
+      messages.forEach((m) => {
+        const time = new Date(m.createdAt).toLocaleString();
+        const sender = m.senderId === userId ? 'Me' : (m.senderName || 'Team Member');
+        const body = m.decryptedContent || '[Decryption Failed / Binary File Attachment]';
+        textContent += `[${time}] ${sender}: ${body}\n`;
+        if (m.mediaUrl) {
+          textContent += `   -> Secure Attachment: ${m.mediaName || 'file'} (${m.mediaUrl})\n`;
+        }
+      });
+
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `ets_chat_export_${chatTitle.replace(/\\s+/g, '_').toLowerCase()}_${Date.now()}.txt`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      
+      toast.success('Decrypted E2EE chat history exported successfully');
+    } catch (err) {
+      console.error('Failed to export chat:', err);
+      toast.error('Failed to compile export file');
+    }
+  };
+
+  // Group messages by sender and timestamp (within 1 minute)
+  const groupedMessages = messages.reduce<Array<{
+    senderId: string;
+    senderName: string;
+    createdAt: string;
+    items: typeof messages;
+  }>>((acc, m) => {
+    const lastGroup = acc[acc.length - 1];
+    const timestampDiff = lastGroup 
+      ? new Date(m.createdAt).getTime() - new Date(lastGroup.createdAt).getTime() 
+      : Infinity;
+
+    if (lastGroup && lastGroup.senderId === m.senderId && timestampDiff < 60000) {
+      lastGroup.items.push(m);
+    } else {
+      acc.push({
+        senderId: m.senderId,
+        senderName: m.senderName || 'Team Member',
+        createdAt: m.createdAt,
+        items: [m],
+      });
+    }
+    return acc;
+  }, []);
+
   return (
     <div className="flex h-[calc(100vh-8rem)] rounded-3xl overflow-hidden border border-border bg-card/45 shadow-2xl backdrop-blur-md">
       {/* Sidebar List Panel */}
@@ -794,10 +860,20 @@ export default function Chat() {
                 </p>
               </div>
 
-              {/* Secure verification indicator */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-medium">
-                <ShieldCheck size={16} />
-                End-to-End Encrypted
+              {/* Controls and verification badge */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportChat}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary border border-border hover:bg-accent text-xs font-semibold text-foreground transition shadow-sm cursor-pointer active:scale-95 select-none"
+                  title="Export Decrypted Conversation Transcript"
+                >
+                  <Download size={14} className="text-muted-foreground" />
+                  <span>Export Chat</span>
+                </button>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-medium animate-pulse">
+                  <ShieldCheck size={16} />
+                  End-to-End Encrypted
+                </div>
               </div>
             </div>
 
@@ -822,77 +898,156 @@ export default function Chat() {
                   Beginning of E2EE secured chat history.
                 </div>
               ) : (
-                messages.map((m) => {
-                  const isMe = m.senderId === userId;
-                  const isVoice = m.mediaType === 'audio/webm';
+                groupedMessages.map((group, gIdx) => {
+                  const isMe = group.senderId === userId;
+                  const mediaItems = group.items.filter(item => item.mediaUrl);
+                  const hasMultipleMedia = mediaItems.length > 1;
+
                   return (
                     <div
-                      key={m.id}
+                      key={gIdx}
                       className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%] ${
                         isMe ? 'ml-auto' : 'mr-auto'
-                      }`}
+                      } gap-1.5`}
                     >
-                      <div className="text-[10px] text-muted-foreground mb-1 px-1 flex items-center gap-1">
-                        {!isMe && <span className="font-semibold text-foreground">{m.senderName}</span>}
-                        <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="text-[10px] text-muted-foreground mb-0.5 px-1 flex items-center gap-1">
+                        {!isMe && <span className="font-semibold text-foreground">{group.senderName}</span>}
+                        <span>{new Date(group.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
 
-                      <div
-                        className={`p-3 rounded-2xl shadow border ${
-                          isMe
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-card text-card-foreground border-border'
-                        }`}
-                      >
-                        {/* Encrypted text content display */}
-                        <p className="text-sm break-all whitespace-pre-wrap">{m.decryptedContent}</p>
+                      {/* Display texts & captions */}
+                      {group.items.map((m) => {
+                        // If it has media and we are grouping multiple media, only show caption text if present
+                        if (hasMultipleMedia && m.mediaUrl) {
+                          if (m.decryptedContent) {
+                            return (
+                              <div
+                                key={m.id}
+                                className={`p-3 rounded-2xl shadow border ${
+                                  isMe
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-card text-card-foreground border-border'
+                                }`}
+                              >
+                                <p className="text-sm break-all whitespace-pre-wrap">{m.decryptedContent}</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }
 
-                        {/* Encrypted attachment render */}
-                        {m.mediaUrl && (
-                          <div className="mt-2.5 border-t border-border/30 pt-2.5 flex flex-col gap-2">
-                            {m.decryptedMediaUrl ? (
-                              isVoice ? (
-                                <audio src={m.decryptedMediaUrl} controls className="max-w-full rounded h-10" />
-                              ) : m.mediaType?.startsWith('image/') ? (
-                                <img
-                                  src={m.decryptedMediaUrl}
-                                  alt="Decrypted upload"
-                                  className="max-h-60 max-w-full rounded-lg object-contain border border-border/40"
-                                />
-                              ) : (
-                                <a
-                                  href={m.decryptedMediaUrl}
-                                  download={m.mediaName || 'file'}
-                                  className="flex items-center gap-2 p-2 rounded-xl bg-secondary/80 hover:bg-secondary border border-border text-xs text-foreground font-medium transition"
-                                >
-                                  <FileText size={16} className="text-primary" />
-                                  <span className="truncate flex-1 max-w-[150px]">{m.mediaName}</span>
-                                  <Download size={14} className="text-muted-foreground shrink-0" />
-                                </a>
-                              )
-                            ) : (
-                              <div className="flex items-center gap-2 text-xs text-rose-500 bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
-                                <AlertTriangle size={14} />
-                                Failed to decrypt attachment
+                        // Otherwise render standard sequential message
+                        const isVoice = m.mediaName === 'voice_message.webm' || m.mediaType?.startsWith('audio/');
+                        return (
+                          <div
+                            key={m.id}
+                            className={`p-3 rounded-2xl shadow border w-full ${
+                              isMe
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-card text-card-foreground border-border'
+                            }`}
+                          >
+                            {m.decryptedContent && (
+                              <p className="text-sm break-all whitespace-pre-wrap">{m.decryptedContent}</p>
+                            )}
+
+                            {m.mediaUrl && (
+                              <div className={`${m.decryptedContent ? 'mt-2.5 border-t border-border/30 pt-2.5' : ''} flex flex-col gap-2`}>
+                                {m.decryptedMediaUrl ? (
+                                  isVoice ? (
+                                    <audio src={m.decryptedMediaUrl} controls className="max-w-full rounded h-10" />
+                                  ) : m.mediaType?.startsWith('image/') ? (
+                                    <img
+                                      src={m.decryptedMediaUrl}
+                                      alt="Decrypted upload"
+                                      className="max-h-60 max-w-full rounded-lg object-contain border border-border/40"
+                                    />
+                                  ) : (
+                                    <a
+                                      href={m.decryptedMediaUrl}
+                                      download={m.mediaName || 'file'}
+                                      className="flex items-center gap-2 p-2 rounded-xl bg-secondary/80 hover:bg-secondary border border-border text-xs text-foreground font-medium transition"
+                                    >
+                                      <FileText size={16} className="text-primary" />
+                                      <span className="truncate flex-1 max-w-[150px]">{m.mediaName}</span>
+                                      <Download size={14} className="text-muted-foreground shrink-0" />
+                                    </a>
+                                  )
+                                ) : (
+                                  <div className="flex items-center gap-2 text-xs text-rose-500 bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+                                    <AlertTriangle size={14} />
+                                    Failed to decrypt attachment
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
+                        );
+                      })}
+
+                      {/* Render aggregated media items in a gallery grid */}
+                      {hasMultipleMedia && (
+                        <div className="grid grid-cols-2 gap-2 w-full mt-1">
+                          {mediaItems.map((m) => {
+                            const isVoice = m.mediaName === 'voice_message.webm' || m.mediaType?.startsWith('audio/');
+                            return (
+                              <div
+                                key={m.id}
+                                className={`p-2.5 rounded-2xl shadow border flex flex-col justify-center ${
+                                  isMe
+                                    ? 'bg-primary/90 text-primary-foreground border-primary/20'
+                                    : 'bg-card text-card-foreground border-border'
+                                }`}
+                              >
+                                {m.decryptedMediaUrl ? (
+                                  isVoice ? (
+                                    <audio src={m.decryptedMediaUrl} controls className="max-w-full rounded h-8" />
+                                  ) : m.mediaType?.startsWith('image/') ? (
+                                    <img
+                                      src={m.decryptedMediaUrl}
+                                      alt="Decrypted upload"
+                                      className="max-h-40 w-full object-cover rounded-lg border border-border/40"
+                                    />
+                                  ) : (
+                                    <a
+                                      href={m.decryptedMediaUrl}
+                                      download={m.mediaName || 'file'}
+                                      className="flex items-center gap-1.5 p-1.5 rounded-xl bg-secondary/80 hover:bg-secondary border border-border text-[10px] text-foreground font-medium transition"
+                                    >
+                                      <FileText size={14} className="text-primary" />
+                                      <span className="truncate flex-1 max-w-[100px]">{m.mediaName}</span>
+                                      <Download size={12} className="text-muted-foreground shrink-0" />
+                                    </a>
+                                  )
+                                ) : (
+                                  <div className="flex items-center gap-1 text-[10px] text-rose-500 bg-rose-500/10 p-1.5 rounded-xl border border-rose-500/20">
+                                    <AlertTriangle size={12} />
+                                    Failed to decrypt
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })
               )}
 
-              {/* Typing indicators */}
+              {/* Bouncing Typing Bubble indicators in thread timeline */}
               {Object.keys(typingUsers).map((tuId) => {
                 if (typingUsers[tuId] && tuId !== userId) {
+                  const typingUser = users.find((u) => u.id === tuId);
+                  const senderName = typingUser ? typingUser.fullName : 'Team Member';
                   return (
-                    <div key={tuId} className="flex items-center gap-1.5 text-[10px] text-muted-foreground px-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce delay-75" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce delay-150" />
-                      <span className="font-semibold ml-1">Typing...</span>
+                    <div key={tuId} className="flex flex-col gap-1 items-start max-w-[70%] self-start animate-in fade-in duration-200">
+                      <span className="text-[10px] text-muted-foreground font-semibold px-2">{senderName}</span>
+                      <div className="bg-card border border-border p-3.5 rounded-2xl shadow flex items-center gap-1 min-w-[50px] justify-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce" />
+                      </div>
                     </div>
                   );
                 }
