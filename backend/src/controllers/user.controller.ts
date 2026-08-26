@@ -74,6 +74,45 @@ export class UserController {
           }
         });
         res.status(200).json(successResponse('Users retrieved successfully', users));
+      } else if (userRole === 'EMPLOYEE' && userId) {
+        const currentUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { projectId: true }
+        });
+        if (currentUser?.projectId) {
+          const users = await prisma.user.findMany({
+            where: { projectId: currentUser.projectId },
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              role: true,
+              department: true,
+              isActive: true,
+              projectId: true,
+              createdAt: true,
+              updatedAt: true
+            }
+          });
+          res.status(200).json(successResponse('Users retrieved successfully', users));
+        } else {
+          // If not assigned to a project, they only see themselves
+          const users = await prisma.user.findMany({
+            where: { id: userId },
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              role: true,
+              department: true,
+              isActive: true,
+              projectId: true,
+              createdAt: true,
+              updatedAt: true
+            }
+          });
+          res.status(200).json(successResponse('Users retrieved successfully', users));
+        }
       } else {
         const users = await userRepository.findAll();
         res.status(200).json(successResponse('Users retrieved successfully', users));
@@ -125,14 +164,8 @@ export class UserController {
       const id = req.params.id as string;
       const { fullName, email, role, isActive, department, taskIds, projectId } = req.body;
 
-      // Get old user details to unassign previous tasks
+      // Get old user details to manage task modifications
       const oldUser = await prisma.user.findUnique({ where: { id } });
-      if (oldUser) {
-        await prisma.task.updateMany({
-          where: { assignee: oldUser.fullName },
-          data: { assignee: null },
-        });
-      }
 
       const updated = await userRepository.updateUser(id, {
         fullName,
@@ -143,12 +176,28 @@ export class UserController {
         projectId: (role === 'EMPLOYEE' || role === 'PROJECT_MANAGER') ? projectId || null : null,
       });
 
-      // Assign new tasks (only if role is EMPLOYEE)
-      if (role === 'EMPLOYEE' && taskIds && Array.isArray(taskIds) && taskIds.length > 0) {
-        await prisma.task.updateMany({
-          where: { id: { in: taskIds } },
-          data: { assignee: fullName },
-        });
+      // Synchronize task assignments if taskIds is explicitly provided
+      if (taskIds && Array.isArray(taskIds)) {
+        if (oldUser) {
+          await prisma.task.updateMany({
+            where: { assignee: oldUser.fullName },
+            data: { assignee: null },
+          });
+        }
+        if (role === 'EMPLOYEE' && taskIds.length > 0) {
+          await prisma.task.updateMany({
+            where: { id: { in: taskIds } },
+            data: { assignee: fullName },
+          });
+        }
+      } else {
+        // If taskIds was not sent, but name changed, update the assignee string on their tasks
+        if (oldUser && oldUser.fullName !== fullName) {
+          await prisma.task.updateMany({
+            where: { assignee: oldUser.fullName },
+            data: { assignee: fullName },
+          });
+        }
       }
 
       // Manage project manager assignments

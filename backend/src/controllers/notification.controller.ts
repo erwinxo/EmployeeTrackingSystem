@@ -163,7 +163,12 @@ export async function sendPushNotification(recipientId: string, payload: { title
       JSON.stringify(payload)
     );
     logger.info(`Web Push notification dispatched successfully to user ID: ${recipientId}`);
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`Failed to dispatch web push to user ID ${recipientId}:`, err);
+    // Cleanup stale/expired subscriptions on 410 Gone or 404 Not Found
+    if (err.statusCode === 410 || err.statusCode === 404) {
+      logger.info(`Push subscription is expired or invalid (status ${err.statusCode}). Deleting from DB for recipient: ${recipientId}`);
+      await prisma.pushSubscription.delete({ where: { userId: recipientId } }).catch(() => {});
+    }
   }
 }
