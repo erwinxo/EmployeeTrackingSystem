@@ -923,7 +923,7 @@ export default function Chat() {
                             return (
                               <div
                                 key={m.id}
-                                className={`p-3 rounded-2xl shadow border ${
+                                className={`p-3 rounded-2xl shadow border w-fit max-w-full ${
                                   isMe
                                     ? 'bg-primary text-primary-foreground border-primary'
                                     : 'bg-card text-card-foreground border-border'
@@ -941,7 +941,7 @@ export default function Chat() {
                         return (
                           <div
                             key={m.id}
-                            className={`p-3 rounded-2xl shadow border w-full ${
+                            className={`p-3 rounded-2xl shadow border w-fit max-w-full ${
                               isMe
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : 'bg-card text-card-foreground border-border'
