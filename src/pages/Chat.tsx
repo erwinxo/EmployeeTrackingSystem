@@ -110,7 +110,7 @@ export default function Chat() {
   // 1. Initialize lists & groups
   const loadSidebarData = useCallback(async () => {
     try {
-      const [usersRes, groupsRes] = await Promise.all([api.get('/users'), api.get('/chats/groups')]);
+      const [usersRes, groupsRes] = await Promise.all([api.get('/users?chat=true'), api.get('/chats/groups')]);
       const fetchedUsers: ChatUser[] = usersRes.data.data.map((u: any) => ({
         ...u,
         status: onlineUsers.includes(u.id) ? 'online' : 'offline',
