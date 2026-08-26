@@ -64,6 +64,9 @@ export function initSocket(server: HTTPServer) {
       status: 'online',
     });
 
+    // Send the newly connected user the list of currently online users
+    socket.emit('online_users_list', Array.from(onlineUsers.keys()));
+
     // Join personal private room
     socket.join(`user_${user.id}`);
 

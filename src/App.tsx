@@ -1,12 +1,14 @@
 import { RouterProvider } from 'react-router-dom'
-import { ThemeProvider, AuthProvider } from './hooks'
+import { ThemeProvider, AuthProvider, SocketProvider } from './hooks'
 import { router } from './routes'
 
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="workspace-theme">
       <AuthProvider>
-        <RouterProvider router={router} />
+        <SocketProvider>
+          <RouterProvider router={router} />
+        </SocketProvider>
       </AuthProvider>
     </ThemeProvider>
   )

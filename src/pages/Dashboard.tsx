@@ -1,4 +1,4 @@
-import { useAuth } from '../hooks'
+import { useAuth, useSocket } from '../hooks'
 import { cn } from '../utils'
 import {
   FolderGit2,
@@ -95,6 +95,7 @@ const computeActiveDurations = (todayLogs: any[]) => {
 
 export default function Dashboard() {
   const { user, updateUser } = useAuth()
+  const { onlineUsers } = useSocket()
   const [searchTerm, setSearchTerm] = useState('')
 
   // Live state
@@ -863,7 +864,14 @@ export default function Dashboard() {
                   ) : (
                     teamStatuses.map((member) => (
                       <tr key={member.id} className="hover:bg-secondary/10 transition-colors">
-                        <td className="py-3 pr-4 font-bold text-foreground">{member.fullName}</td>
+                        <td className="py-3 pr-4 font-bold text-foreground">
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2.5 w-2.5 rounded-full border border-background shrink-0 ${
+                              onlineUsers.includes(member.id) ? 'bg-emerald-500' : 'bg-slate-400'
+                            }`} title={onlineUsers.includes(member.id) ? 'Online' : 'Offline'} />
+                            {member.fullName}
+                          </div>
+                        </td>
                         <td className="py-3 pr-4 text-muted-foreground">{member.department || 'General'}</td>
                         <td className="py-3 pr-4 font-medium uppercase text-[10px] tracking-wide text-muted-foreground">
                           {member.role.replace('_', ' ')}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { useAuth, useE2EE, arrayBufferToBase64 } from '../hooks';
+
+import { useAuth, useE2EE, useSocket, arrayBufferToBase64 } from '../hooks';
 import api from '../services/api';
 import {
   Send,
@@ -67,6 +67,7 @@ interface ChatGroup {
 export default function Chat() {
   const { user } = useAuth();
   const userId = user?.id;
+  const { socket, onlineUsers } = useSocket();
 
   // Cryptographic hooks
   const {
@@ -103,18 +104,8 @@ export default function Chat() {
   const groupKeyCacheRef = useRef<Record<string, CryptoKey>>({});
 
   // Socket and UI Refs
-  const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Parse backend root URL to initialize websocket
-  const getSocketUrl = () => {
-    const apiUrl =
-      import.meta.env.VITE_API_BASE_URL ||
-      import.meta.env.VITE_API_URL ||
-      'https://employeetrackingsystem-ymsp.onrender.com/api/v1';
-    return apiUrl.replace('/api/v1', '');
-  };
 
   // 1. Initialize lists & groups
   const loadSidebarData = useCallback(async () => {
@@ -122,7 +113,7 @@ export default function Chat() {
       const [usersRes, groupsRes] = await Promise.all([api.get('/users'), api.get('/chats/groups')]);
       const fetchedUsers: ChatUser[] = usersRes.data.data.map((u: any) => ({
         ...u,
-        status: 'offline', // Default state, presence resolved by WS
+        status: onlineUsers.includes(u.id) ? 'online' : 'offline',
       }));
       setUsers(fetchedUsers.filter((u) => u.id !== userId));
       setGroups(groupsRes.data.data);
@@ -130,7 +121,17 @@ export default function Chat() {
       console.error('Failed to fetch sidebar listings:', err);
       toast.error('Failed to load chat channels');
     }
-  }, [userId]);
+  }, [userId, onlineUsers]);
+
+  // Sync users status when onlineUsers updates
+  useEffect(() => {
+    setUsers((prev) =>
+      prev.map((u) => ({
+        ...u,
+        status: onlineUsers.includes(u.id) ? 'online' : 'offline',
+      }))
+    );
+  }, [onlineUsers]);
 
   // Load E2EE Group Keys
   const loadGroupKeys = useCallback(async () => {
@@ -200,57 +201,57 @@ export default function Chat() {
     registerPush();
   }, [userId]);
 
-  // 2. Initialize WebSocket signaling
+  // 2. Attach WebSocket event listeners
   useEffect(() => {
-    if (!userId) return;
+    if (!socket || !userId) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    const socketUrl = getSocketUrl();
-    const socket = io(socketUrl, {
-      auth: { token },
-      transports: ['websocket'],
-    });
-
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('WebSocket connected');
-    });
-
-    // Handle real-time messages
-    socket.on('new_message', async (msg: Message) => {
-      // Resolve message name mapping if missing
+    const handleNewMessage = async (msg: Message) => {
       if (!msg.senderName) {
         const found = users.find((u) => u.id === msg.senderId);
         msg.senderName = found ? found.fullName : 'Team Member';
       }
 
-      const decrypted = await decryptMessage(msg);
-      setMessages((prev) => [...prev, decrypted]);
-      scrollToBottom();
-    });
+      const isForActiveGroup = !!(msg.groupId && activeGroup && msg.groupId === activeGroup.id);
+      const isForActiveRecipient = !!(msg.recipientId && activeRecipient && (
+        (msg.senderId === userId && msg.recipientId === activeRecipient.id) ||
+        (msg.senderId === activeRecipient.id && msg.recipientId === userId)
+      ));
 
-    // Handle presence events
-    socket.on('presence_change', (payload: { userId: string; status: 'online' | 'offline' }) => {
+      if (isForActiveGroup || isForActiveRecipient) {
+        const decrypted = await decryptMessage(msg);
+        setMessages((prev) => [...prev, decrypted]);
+        scrollToBottom();
+      } else {
+        // Notification toast for background messages
+        if (msg.senderId !== userId) {
+          toast.info(`🔒 New secure message from ${msg.senderName}`);
+        }
+      }
+    };
+
+    const handlePresenceChange = (payload: { userId: string; status: 'online' | 'offline' }) => {
       setUsers((prev) =>
         prev.map((u) => (u.id === payload.userId ? { ...u, status: payload.status } : u))
       );
-    });
+    };
 
-    // Handle typing events
-    socket.on('typing_status', (payload: { userId: string; userName: string; isTyping: boolean }) => {
+    const handleTypingStatus = (payload: { userId: string; userName: string; isTyping: boolean }) => {
       setTypingUsers((prev) => ({
         ...prev,
         [payload.userId]: payload.isTyping,
       }));
-    });
+    };
+
+    socket.on('new_message', handleNewMessage);
+    socket.on('presence_change', handlePresenceChange);
+    socket.on('typing_status', handleTypingStatus);
 
     return () => {
-      socket.disconnect();
+      socket.off('new_message', handleNewMessage);
+      socket.off('presence_change', handlePresenceChange);
+      socket.off('typing_status', handleTypingStatus);
     };
-  }, [userId, users]);
+  }, [socket, userId, users, activeRecipient, activeGroup]);
 
   // Scroll to bottom helper
   function scrollToBottom() {
@@ -374,9 +375,9 @@ export default function Chat() {
   const handleTextInput = (text: string) => {
     setInputText(text);
 
-    if (!isTyping && socketRef.current) {
+    if (!isTyping && socket) {
       setIsTyping(true);
-      socketRef.current.emit('typing', {
+      socket.emit('typing', {
         recipientId: activeRecipient?.id,
         groupId: activeGroup?.id,
         isTyping: true,
@@ -385,8 +386,8 @@ export default function Chat() {
       // Clear typing indicator after idle duration
       setTimeout(() => {
         setIsTyping(false);
-        if (socketRef.current) {
-          socketRef.current.emit('typing', {
+        if (socket) {
+          socket.emit('typing', {
             recipientId: activeRecipient?.id,
             groupId: activeGroup?.id,
             isTyping: false,
@@ -399,7 +400,7 @@ export default function Chat() {
   // 4. Send encrypted text message
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || !socketRef.current) return;
+    if (!inputText.trim() || !socket) return;
 
     try {
       let aesKey: CryptoKey | null = null;
@@ -418,7 +419,7 @@ export default function Chat() {
       const { ciphertext, iv } = await encryptPayload(inputText, aesKey);
 
       // Emit encrypted payload via WebSocket
-      socketRef.current.emit('send_message', {
+      socket.emit('send_message', {
         recipientId: activeRecipient?.id,
         groupId: activeGroup?.id,
         encryptedContent: ciphertext,
@@ -435,7 +436,7 @@ export default function Chat() {
   // 5. Send encrypted file attachment (image, pdf, document)
   const handleSendFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !socketRef.current) return;
+    if (!file || !socket) return;
 
     setIsUploading(true);
     try {
@@ -468,7 +469,7 @@ export default function Chat() {
       const { ciphertext: encFileName, iv: textIv } = await encryptPayload(file.name, aesKey);
 
       // 4. Send encrypted payload details via WebSocket
-      socketRef.current.emit('send_message', {
+      socket.emit('send_message', {
         recipientId: activeRecipient?.id,
         groupId: activeGroup?.id,
         encryptedContent: encFileName,
@@ -521,8 +522,8 @@ export default function Chat() {
       const { ciphertext: encLabel, iv: textIv } = await encryptPayload('Voice Message', aesKey);
 
       // 4. Broadcast
-      if (socketRef.current) {
-        socketRef.current.emit('send_message', {
+      if (socket) {
+        socket.emit('send_message', {
           recipientId: activeRecipient?.id,
           groupId: activeGroup?.id,
           encryptedContent: encLabel,

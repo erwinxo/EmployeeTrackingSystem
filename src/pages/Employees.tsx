@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../hooks'
+import { useAuth, useSocket } from '../hooks'
 import api from '../services/api'
 import { Users, Building2, ShieldCheck, Search, Plus, Trash2, Edit2, UserPlus, X, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,6 +21,7 @@ interface DbUserExtended extends User {
 
 export default function Employees() {
   const { user: currentUser } = useAuth()
+  const { onlineUsers } = useSocket()
   const isAdmin = currentUser?.role === 'ADMIN'
 
   const [employees, setEmployees] = useState<DbUserExtended[]>([])
@@ -300,7 +301,12 @@ export default function Employees() {
             <div key={emp.id} className="relative rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md hover:border-border/80 transition-all flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <img src={emp.avatar} alt={emp.name} className="h-10 w-10 rounded-full object-cover border border-border" />
+                  <div className="relative shrink-0">
+                    <img src={emp.avatar} alt={emp.name} className="h-10 w-10 rounded-full object-cover border border-border" />
+                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${
+                      onlineUsers.includes(emp.id) ? 'bg-emerald-500' : 'bg-slate-400'
+                    }`} title={onlineUsers.includes(emp.id) ? 'Online' : 'Offline'} />
+                  </div>
                   <div>
                     <h3 className="text-sm font-bold text-foreground line-clamp-1">{emp.name}</h3>
                     <p className="text-[10px] text-muted-foreground line-clamp-1">{emp.email}</p>
