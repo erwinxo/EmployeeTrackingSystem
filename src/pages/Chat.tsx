@@ -98,6 +98,8 @@ export default function Chat() {
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedGroupRole, setSelectedGroupRole] = useState('');
   const [selectedGroupProject, setSelectedGroupProject] = useState('');
+  const [availableProjects, setAvailableProjects] = useState<any[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
   // Key Caches
   const sharedKeyCacheRef = useRef<Record<string, CryptoKey>>({});
@@ -110,18 +112,34 @@ export default function Chat() {
   // 1. Initialize lists & groups
   const loadSidebarData = useCallback(async () => {
     try {
-      const [usersRes, groupsRes] = await Promise.all([api.get('/users?chat=true'), api.get('/chats/groups')]);
+      const isPrivileged = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'PROJECT_MANAGER';
+      const promises: Promise<any>[] = [
+        api.get('/users?chat=true'),
+        api.get('/chats/groups')
+      ];
+      if (isPrivileged) {
+        promises.push(api.get('/projects'));
+      }
+
+      const results = await Promise.all(promises);
+      const usersRes = results[0];
+      const groupsRes = results[1];
+
       const fetchedUsers: ChatUser[] = usersRes.data.data.map((u: any) => ({
         ...u,
         status: onlineUsers.includes(u.id) ? 'online' : 'offline',
       }));
       setUsers(fetchedUsers.filter((u) => u.id !== userId));
       setGroups(groupsRes.data.data);
+
+      if (isPrivileged && results[2]) {
+        setAvailableProjects(results[2].data.data);
+      }
     } catch (err) {
       console.error('Failed to fetch sidebar listings:', err);
       toast.error('Failed to load chat channels');
     }
-  }, [userId, onlineUsers]);
+  }, [userId, onlineUsers, user?.role]);
 
   // Sync users status when onlineUsers updates
   useEffect(() => {
@@ -563,22 +581,17 @@ export default function Chat() {
       // 2. Generate random 256-bit AES Group key in browser
       const groupRawKey = await generateGroupKey();
 
-      // Find authorized members for E2EE key distribution mapping
-      let members: ChatUser[] = [];
-      if (selectedGroupRole) {
-        members = users.filter((u) => u.role === selectedGroupRole);
-      } else if (selectedGroupProject) {
-        members = users.filter((u) => u.projectId === selectedGroupProject);
-      } else {
-        // Custom group containing everyone for testing
-        members = [...users];
-      }
+      // Find authorized members based on explicit checkbox selection
+      const members = users.filter((u) => selectedMemberIds.includes(u.id));
 
       // Include myself in group key mappings
       const currentLoggedInUser = await api.get('/users/profile');
       const meProfile = currentLoggedInUser.data.data;
 
-      const keysListToEncrypt = [...members, { id: meProfile.id, fullName: meProfile.fullName }];
+      const keysListToEncrypt = [...members];
+      if (!keysListToEncrypt.some((m) => m.id === meProfile.id)) {
+        keysListToEncrypt.push({ id: meProfile.id, fullName: meProfile.fullName } as any);
+      }
 
       const encryptedKeysPayload: Array<{ userId: string; encryptedKey: string; iv: string }> = [];
 
@@ -614,6 +627,7 @@ export default function Chat() {
       setNewGroupName('');
       setSelectedGroupRole('');
       setSelectedGroupProject('');
+      setSelectedMemberIds([]);
       loadSidebarData();
       loadGroupKeys();
     } catch (err) {
@@ -631,12 +645,14 @@ export default function Chat() {
             <MessageSquare size={18} className="text-primary" />
             Workspace Chat
           </h2>
-          <button
-            onClick={() => setShowCreateGroupModal(true)}
-            className="text-xs px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 transition shadow"
-          >
-            Create Group
-          </button>
+          {(user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'PROJECT_MANAGER') && (
+            <button
+              onClick={() => setShowCreateGroupModal(true)}
+              className="text-xs px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 transition shadow"
+            >
+              Create Group
+            </button>
+          )}
         </div>
 
         {/* Scrollable list content */}
@@ -939,10 +955,10 @@ export default function Chat() {
 
       {/* 8. Group creation modal */}
       {showCreateGroupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-3xl p-6 max-w-md w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border rounded-3xl p-6 max-w-md w-full shadow-2xl relative flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
             <h3 className="font-bold text-lg text-foreground mb-4">Create Secure Group Channel</h3>
-            <form onSubmit={handleCreateGroup} className="space-y-4">
+            <form onSubmit={handleCreateGroup} className="space-y-4 overflow-y-auto pr-1 flex-1 custom-scrollbar">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground block mb-1">Group Name</label>
                 <input
@@ -951,7 +967,7 @@ export default function Chat() {
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   placeholder="e.g. Frontend Engineers"
-                  className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50"
+                  className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 text-foreground"
                 />
               </div>
 
@@ -962,8 +978,16 @@ export default function Chat() {
                 <select
                   value={selectedGroupRole}
                   onChange={(e) => {
-                    setSelectedGroupRole(e.target.value);
+                    const roleVal = e.target.value;
+                    setSelectedGroupRole(roleVal);
                     setSelectedGroupProject('');
+                    // Auto-select members with this role
+                    if (roleVal) {
+                      const matched = users.filter(u => u.role === roleVal).map(u => u.id);
+                      setSelectedMemberIds(matched);
+                    } else {
+                      setSelectedMemberIds([]);
+                    }
                   }}
                   className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 text-foreground"
                 >
@@ -982,28 +1006,79 @@ export default function Chat() {
                 <select
                   value={selectedGroupProject}
                   onChange={(e) => {
-                    setSelectedGroupProject(e.target.value);
+                    const projVal = e.target.value;
+                    setSelectedGroupProject(projVal);
                     setSelectedGroupRole('');
+                    // Auto-select members with this project ID
+                    if (projVal) {
+                      const matched = users.filter(u => u.projectId === projVal).map(u => u.id);
+                      setSelectedMemberIds(matched);
+                    } else {
+                      setSelectedMemberIds([]);
+                    }
                   }}
                   className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 text-foreground"
                 >
                   <option value="">No Project Restriction</option>
-                  {/* Populate project selections if needed */}
-                  <option value="cld7w8r1s00003b5x0w8qol35">General Workspace Project</option>
+                  {availableProjects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
                 </select>
+              </div>
+
+              {/* Employee Checklist Selection */}
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1.5">
+                  Select Members to Add ({selectedMemberIds.length} selected)
+                </label>
+                <div className="border border-border rounded-xl p-3 bg-secondary/50 max-h-48 overflow-y-auto space-y-2 custom-scrollbar">
+                  {users.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic text-center py-2">No members available</p>
+                  ) : (
+                    users.map((u) => {
+                      const isChecked = selectedMemberIds.includes(u.id);
+                      return (
+                        <label key={u.id} className="flex items-center gap-2.5 text-xs text-foreground cursor-pointer hover:bg-accent/10 p-1.5 rounded transition">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setSelectedMemberIds(prev => 
+                                isChecked ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                              );
+                            }}
+                            className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+                          />
+                          <div className="flex-1 overflow-hidden">
+                            <span className="font-semibold block truncate">{u.fullName}</span>
+                            <span className="text-[10px] text-muted-foreground block uppercase font-medium">{u.role.replace('_', ' ')}</span>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowCreateGroupModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-border bg-secondary hover:bg-accent text-sm font-semibold transition"
+                  onClick={() => {
+                    setShowCreateGroupModal(false);
+                    setSelectedMemberIds([]);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-border bg-secondary hover:bg-accent text-sm font-semibold transition text-foreground"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/95 text-sm font-semibold transition shadow-md"
+                  disabled={selectedMemberIds.length === 0}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition shadow-md ${
+                    selectedMemberIds.length > 0 
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/95' 
+                      : 'bg-secondary text-muted-foreground/30 border border-border cursor-not-allowed'
+                  }`}
                 >
                   Create Channel
                 </button>
