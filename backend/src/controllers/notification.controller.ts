@@ -25,12 +25,33 @@ if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
 }
 
 // Set Web Push configuration
-if (vapidKeys.publicKey && vapidKeys.privateKey) {
-  webpush.setVapidDetails(
-    'mailto:admin@thinkcove.com',
-    vapidKeys.publicKey,
-    vapidKeys.privateKey
-  );
+try {
+  if (vapidKeys.publicKey && vapidKeys.privateKey) {
+    webpush.setVapidDetails(
+      'mailto:admin@thinkcove.com',
+      vapidKeys.publicKey,
+      vapidKeys.privateKey
+    );
+    logger.info('VAPID details configured successfully');
+  }
+} catch (err) {
+  logger.error('Failed to configure provided VAPID keys, falling back to auto-generation:', err);
+  try {
+    const generated = webpush.generateVAPIDKeys();
+    vapidKeys = {
+      publicKey: generated.publicKey,
+      privateKey: generated.privateKey,
+    };
+    webpush.setVapidDetails(
+      'mailto:admin@thinkcove.com',
+      vapidKeys.publicKey,
+      vapidKeys.privateKey
+    );
+    logger.info('Auto-generated temporary VAPID keys for Web Push fallback');
+    logger.info(`VAPID Public Key: ${vapidKeys.publicKey}`);
+  } catch (fallbackErr) {
+    logger.error('VAPID fallback details setup failed:', fallbackErr);
+  }
 }
 
 export class NotificationController {
