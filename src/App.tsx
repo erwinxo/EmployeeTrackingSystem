@@ -1,5 +1,5 @@
 import { RouterProvider } from 'react-router-dom'
-import { ThemeProvider, AuthProvider, SocketProvider } from './hooks'
+import { ThemeProvider, AuthProvider, SocketProvider, SystemSettingsProvider } from './hooks'
 import { router } from './routes'
 
 function App() {
@@ -7,7 +7,9 @@ function App() {
     <ThemeProvider defaultTheme="dark" storageKey="workspace-theme">
       <AuthProvider>
         <SocketProvider>
-          <RouterProvider router={router} />
+          <SystemSettingsProvider>
+            <RouterProvider router={router} />
+          </SystemSettingsProvider>
         </SocketProvider>
       </AuthProvider>
     </ThemeProvider>

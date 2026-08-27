@@ -12,6 +12,7 @@ import reportRoutes from './routes/report.routes';
 import timeLogRoutes from './routes/timeLog.routes';
 import chatRoutes from './routes/chat.routes';
 import notificationRoutes from './routes/notification.routes';
+import settingRoutes from './routes/setting.routes';
 import { swaggerSpec } from './docs/swagger';
 import { AppError } from './utils/errors';
 import logger from './config/logger';
@@ -37,6 +38,7 @@ app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/time-logs', timeLogRoutes);
 app.use('/api/v1/chats', chatRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/settings', settingRoutes);
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use((req: Request, res: Response) => {

@@ -3,6 +3,8 @@ import multer from 'multer';
 import { ChatController } from '../controllers/chat.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
+import { checkFeature } from '../middleware/setting.middleware';
+
 const router = Router();
 const controller = new ChatController();
 
@@ -15,6 +17,7 @@ const upload = multer({
 });
 
 router.use(authenticate);
+router.use(checkFeature('FEATURE_CHAT'));
 
 router.get('/keys', controller.getGroupKeys.bind(controller));
 router.post('/keys', controller.saveGroupKeys.bind(controller));

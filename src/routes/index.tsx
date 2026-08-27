@@ -12,8 +12,11 @@ import Reports from '../pages/Reports'
 import Settings from '../pages/Settings'
 import Chat from '../pages/Chat'
 import NotFound from '../pages/NotFound'
-import { useAuth } from '../hooks'
+import SuperAdminLogin from '../pages/SuperAdminLogin'
+import SuperAdminDashboard from '../pages/SuperAdminDashboard'
+import { useAuth, useSystemSettings } from '../hooks'
 import type { UserRole } from '../types'
+import { toast } from 'sonner'
 
 interface RoleGuardProps {
   children: React.ReactNode
@@ -34,10 +37,42 @@ function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   return <>{children}</>
 }
 
+interface FeatureGuardProps {
+  children: React.ReactNode
+  featureKey: 'FEATURE_CHAT' | 'FEATURE_REPORTS' | 'FEATURE_TASKS'
+}
+
+function FeatureGuard({ children, featureKey }: FeatureGuardProps) {
+  const { isFeatureEnabled } = useSystemSettings()
+
+  if (!isFeatureEnabled(featureKey)) {
+    const label =
+      featureKey === 'FEATURE_CHAT' ? 'Messaging' :
+      featureKey === 'FEATURE_REPORTS' ? 'Reports' :
+      'Tasks';
+
+    setTimeout(() => {
+      toast.error(`The ${label} module has been temporarily disabled by an administrator.`);
+    }, 0);
+
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <>{children}</>
+}
+
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Login />,
+  },
+  {
+    path: '/superadmin/login',
+    element: <SuperAdminLogin />,
+  },
+  {
+    path: '/superadmin/dashboard',
+    element: <SuperAdminDashboard />,
   },
   {
     path: '/',
@@ -78,11 +113,19 @@ export const router = createBrowserRouter([
       },
       {
         path: 'tasks',
-        element: <Tasks />,
+        element: (
+          <FeatureGuard featureKey="FEATURE_TASKS">
+            <Tasks />
+          </FeatureGuard>
+        ),
       },
       {
         path: 'reports',
-        element: <Reports />,
+        element: (
+          <FeatureGuard featureKey="FEATURE_REPORTS">
+            <Reports />
+          </FeatureGuard>
+        ),
       },
       {
         path: 'settings',
@@ -90,7 +133,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'chat',
-        element: <Chat />,
+        element: (
+          <FeatureGuard featureKey="FEATURE_CHAT">
+            <Chat />
+          </FeatureGuard>
+        ),
       },
     ],
   },

@@ -20,6 +20,24 @@ async function main() {
     },
   });
 
+  // Seed Super Admin User
+  const superPassword = await bcrypt.hash('superadmin@123', 10);
+  const superAdmin = await prisma.user.upsert({
+    where: { email: 'superadmin@thinkcove.com' },
+    update: {
+      password: superPassword,
+      role: 'SUPER_ADMIN',
+      isActive: true,
+    },
+    create: {
+      fullName: 'Super Admin',
+      email: 'superadmin@thinkcove.com',
+      password: superPassword,
+      role: 'SUPER_ADMIN',
+      isActive: true,
+    },
+  });
+
   // 2. Clear existing demo data
   await prisma.task.deleteMany({});
   await prisma.clientRequirement.deleteMany({});

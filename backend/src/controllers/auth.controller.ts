@@ -68,9 +68,27 @@ export class AuthController {
         },
       });
 
+      const superPassword = await bcrypt.hash('superadmin@123', 10);
+      const superAdmin = await prisma.user.upsert({
+        where: { email: 'superadmin@thinkcove.com' },
+        update: {
+          password: superPassword,
+          role: 'SUPER_ADMIN',
+          isActive: true,
+        },
+        create: {
+          fullName: 'Super Admin',
+          email: 'superadmin@thinkcove.com',
+          password: superPassword,
+          role: 'SUPER_ADMIN',
+          isActive: true,
+        },
+      });
+
       res.status(200).json(successResponse('Database seeded successfully via API', {
         admin: admin.email,
         pm: pm.email,
+        superadmin: superAdmin.email,
       }));
     } catch (error) {
       res.status(500).json({ success: false, message: 'API Seeding failed', data: null, errors: [(error as Error).message] });

@@ -133,3 +133,10 @@ model UserPrivateKeyBackup {
   updatedAt           DateTime @updatedAt
 }
 
+model SystemSetting {
+  id        String   @id @default(cuid()) @map("_id")
+  key       String   @unique // e.g. "FEATURE_CHAT", "FEATURE_REPORTS", "FEATURE_TASKS"
+  value     Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+

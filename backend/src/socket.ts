@@ -14,6 +14,8 @@ interface DecodedToken {
 // Store online users: userId -> Set of socketIds
 export const onlineUsers = new Map<string, Set<string>>();
 
+export let socketIO: SocketIOServer | null = null;
+
 export function initSocket(server: HTTPServer) {
   const io = new SocketIOServer(server, {
     cors: {
@@ -21,6 +23,7 @@ export function initSocket(server: HTTPServer) {
       methods: ['GET', 'POST'],
     },
   });
+  socketIO = io;
 
   // Authentication Middleware
   io.use(async (socket, next) => {

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useAuth } from '../hooks'
+import { useAuth, useSystemSettings } from '../hooks'
 import {
   LayoutDashboard,
   Users,
@@ -24,6 +24,7 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, setMobileOpen, collapsed, setCollapsed }: SidebarProps) {
   const { user, logout } = useAuth()
+  const { isFeatureEnabled } = useSystemSettings()
   const location = useLocation()
 
   if (!user) return null
@@ -80,7 +81,16 @@ export function Sidebar({ mobileOpen, setMobileOpen, collapsed, setCollapsed }: 
     },
   ]
 
-  const navItems = allNavItems.filter((item) => item.roles.includes(user.role))
+  const navItems = allNavItems.filter((item) => {
+    if (!item.roles.includes(user.role)) return false
+
+    // Real-time feature toggle validation
+    if (item.name === 'Messages' && !isFeatureEnabled('FEATURE_CHAT')) return false
+    if (item.name === 'Reports' && !isFeatureEnabled('FEATURE_REPORTS')) return false
+    if (item.name === 'Tasks' && !isFeatureEnabled('FEATURE_TASKS')) return false
+
+    return true
+  })
 
   const sidebarContent = (
     <div className="flex h-full flex-col justify-between bg-card/85 text-card-foreground border border-border md:rounded-3xl transition-all duration-300 shadow-xl backdrop-blur-md">

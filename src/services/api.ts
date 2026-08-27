@@ -14,7 +14,8 @@ const api: AxiosInstance = axios.create({
 // Request Interceptor: Inject Auth Token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN)
+    const superToken = localStorage.getItem('superadmin_token')
+    const token = superToken || localStorage.getItem(STORAGE_KEYS.TOKEN)
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
