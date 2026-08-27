@@ -123,3 +123,13 @@ model PushSubscription {
   updatedAt DateTime @updatedAt
 }
 
+model UserPrivateKeyBackup {
+  id                  String   @id @default(cuid()) @map("_id")
+  userId              String   @unique
+  encryptedPrivateKey String   // Base64 encrypted private key JWK string
+  iv                  String   // Base64 IV used for AES-GCM encryption
+  salt                String   // Base64 salt used for PBKDF2 key derivation
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+

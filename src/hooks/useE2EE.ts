@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { useAuth } from './useAuth';
 
 const DB_NAME = 'thinkcove_e2ee';
 const STORE_KEYPAIRS = 'keypairs';
@@ -67,47 +68,9 @@ export const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
 export const useE2EE = (userId: string | null | undefined) => {
   const [myKeyPair, setMyKeyPair] = useState<CryptoKeyPair | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const { authPassword } = useAuth();
 
-  // Initialize and load user's E2EE keypairs
-  const initKeys = useCallback(async (uid: string) => {
-    setIsInitializing(true);
-    try {
-      let keyPair = await getPersistedKeyPair(uid);
-
-      if (!keyPair) {
-        // Generate a new ECDH P-256 keypair
-        keyPair = await window.crypto.subtle.generateKey(
-          {
-            name: 'ECDH',
-            namedCurve: 'P-256',
-          },
-          true, // extractable
-          ['deriveKey', 'deriveBits']
-        );
-
-        // Persist keypair in IndexedDB
-        await savePersistedKeyPair(uid, keyPair);
-
-        // Export and upload public key to server
-        const jwkPublicKey = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
-        await api.post('/users/public-key', { ecdhPublicKey: JSON.stringify(jwkPublicKey) });
-      }
-
-      setMyKeyPair(keyPair);
-    } catch (error) {
-      console.error('Failed to initialize E2EE keys:', error);
-    } finally {
-      setIsInitializing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (userId) {
-      initKeys(userId);
-    }
-  }, [userId, initKeys]);
-
-  // Import a JWK Public Key from string
+  // Helper to import a JWK Public Key from string
   const importPublicKey = async (jwkString: string): Promise<CryptoKey> => {
     const jwk = JSON.parse(jwkString);
     return window.crypto.subtle.importKey(
@@ -121,6 +84,181 @@ export const useE2EE = (userId: string | null | undefined) => {
       []
     );
   };
+
+  // Helper to import a JWK Private Key
+  const importPrivateKey = async (jwk: JsonWebKey): Promise<CryptoKey> => {
+    return window.crypto.subtle.importKey(
+      'jwk',
+      jwk,
+      {
+        name: 'ECDH',
+        namedCurve: 'P-256',
+      },
+      true,
+      ['deriveKey', 'deriveBits']
+    );
+  };
+
+  // Derive a Key Encryption Key (KEK) from password and salt using PBKDF2
+  const deriveKEK = async (password: string, salt: ArrayBuffer): Promise<CryptoKey> => {
+    const encoder = new TextEncoder();
+    const passwordBytes = encoder.encode(password);
+
+    const baseKey = await window.crypto.subtle.importKey(
+      'raw',
+      passwordBytes,
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+
+    return window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      baseKey,
+      {
+        name: 'AES-GCM',
+        length: 256,
+      },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  };
+
+  // Encrypt the ECDH P-256 private key JWK with KEK
+  const encryptPrivateKey = async (privateKey: CryptoKey, kek: CryptoKey): Promise<{ ciphertext: string; iv: string }> => {
+    const jwk = await window.crypto.subtle.exportKey('jwk', privateKey);
+    const jwkString = JSON.stringify(jwk);
+
+    const encoder = new TextEncoder();
+    const encodedData = encoder.encode(jwkString);
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+    const ciphertextBuffer = await window.crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv,
+      },
+      kek,
+      encodedData
+    );
+
+    return {
+      ciphertext: arrayBufferToBase64(ciphertextBuffer),
+      iv: arrayBufferToBase64(iv.buffer),
+    };
+  };
+
+  // Decrypt the ECDH P-256 private key JWK with KEK
+  const decryptPrivateKey = async (ciphertextBase64: string, ivBase64: string, kek: CryptoKey): Promise<JsonWebKey> => {
+    const ciphertext = base64ToArrayBuffer(ciphertextBase64);
+    const iv = base64ToArrayBuffer(ivBase64);
+
+    const decryptedBuffer = await window.crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: new Uint8Array(iv),
+      },
+      kek,
+      ciphertext
+    );
+
+    const decoder = new TextDecoder();
+    const jwkString = decoder.decode(decryptedBuffer);
+    return JSON.parse(jwkString);
+  };
+
+  // Initialize and load user's E2EE keypairs
+  const initKeys = useCallback(async (uid: string, password: string | null) => {
+    setIsInitializing(true);
+    try {
+      let keyPair = await getPersistedKeyPair(uid);
+
+      if (!keyPair) {
+        // Check if server backup exists
+        let backupData = null;
+        try {
+          const res = await api.get('/users/private-key-backup');
+          backupData = res.data.data;
+        } catch (e) {
+          console.log('No server private key backup found, creating new keys.');
+        }
+
+        if (backupData && password) {
+          try {
+            // Restore from server backup
+            const salt = base64ToArrayBuffer(backupData.salt);
+            const kek = await deriveKEK(password, salt);
+            const privateJwk = await decryptPrivateKey(backupData.encryptedPrivateKey, backupData.iv, kek);
+            const privateKey = await importPrivateKey(privateJwk);
+
+            // Fetch public key JWK string from server
+            const pubRes = await api.get(`/users/${uid}/public-key`);
+            const publicKey = await importPublicKey(pubRes.data.data.ecdhPublicKey);
+
+            keyPair = { publicKey, privateKey };
+
+            // Save restored keypair in IndexedDB
+            await savePersistedKeyPair(uid, keyPair);
+          } catch (restoreErr) {
+            console.error('Failed to restore private key backup:', restoreErr);
+          }
+        }
+
+        // Generate new keys if backup did not exist or restoration failed
+        if (!keyPair) {
+          keyPair = await window.crypto.subtle.generateKey(
+            {
+              name: 'ECDH',
+              namedCurve: 'P-256',
+            },
+            true, // extractable
+            ['deriveKey', 'deriveBits']
+          );
+
+          // Save in IndexedDB
+          await savePersistedKeyPair(uid, keyPair);
+
+          // Export and upload public key
+          const jwkPublicKey = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+          await api.post('/users/public-key', { ecdhPublicKey: JSON.stringify(jwkPublicKey) });
+
+          // Upload private key backup if password is provided
+          if (password) {
+            try {
+              const salt = window.crypto.getRandomValues(new Uint8Array(16));
+              const kek = await deriveKEK(password, salt.buffer);
+              const backup = await encryptPrivateKey(keyPair.privateKey, kek);
+
+              await api.post('/users/private-key-backup', {
+                encryptedPrivateKey: backup.ciphertext,
+                iv: backup.iv,
+                salt: arrayBufferToBase64(salt.buffer),
+              });
+            } catch (backupErr) {
+              console.error('Failed to create server private key backup:', backupErr);
+            }
+          }
+        }
+      }
+
+      setMyKeyPair(keyPair);
+    } catch (error) {
+      console.error('Failed to initialize E2EE keys:', error);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      initKeys(userId, authPassword);
+    }
+  }, [userId, authPassword, initKeys]);
 
   // Derive Shared Symmetric Key (AES-GCM-256) between myself and target user
   const deriveSharedKey = async (recipientJwkPublic: string): Promise<CryptoKey> => {

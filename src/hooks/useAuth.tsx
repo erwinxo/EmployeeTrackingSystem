@@ -9,6 +9,7 @@ interface AuthContextType {
   logout: () => void
   updateUser: (updatedUser: Partial<User>) => void
   isLoading: boolean
+  authPassword: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [authPassword, setAuthPassword] = useState<string | null>(null)
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
@@ -41,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentStatus: dbUser.currentStatus || 'OFF_WORK',
       }
 
+      setAuthPassword(password)
       setUser(frontendUser)
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(frontendUser))
       localStorage.setItem(STORAGE_KEYS.TOKEN, token)
@@ -54,8 +57,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null)
+    setAuthPassword(null)
     localStorage.removeItem(STORAGE_KEYS.USER)
     localStorage.removeItem(STORAGE_KEYS.TOKEN)
+    // Securely delete E2EE database on logout
+    try {
+      indexedDB.deleteDatabase('thinkcove_e2ee');
+    } catch (e) {
+      console.error('Failed to clear E2EE DB:', e);
+    }
   }
 
   const updateUser = (updatedUser: Partial<User>) => {
@@ -66,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, isLoading, authPassword }}>
       {children}
     </AuthContext.Provider>
   )
