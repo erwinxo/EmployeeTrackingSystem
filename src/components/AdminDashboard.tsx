@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'sonner';
-import { 
-  Search, User, Mail, Key, Shield, FolderGit2, 
+import {
+  Search, User, Mail, Key, Shield, FolderGit2,
   Edit, Loader2
 } from 'lucide-react';
 import { cn } from '../utils';
@@ -15,17 +15,17 @@ export function AdminDashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Modal states
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
-  
+
   const [assigningUser, setAssigningUser] = useState<any | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
-  
+
   const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
@@ -137,14 +137,14 @@ export function AdminDashboard() {
   const openAssignmentModal = (user: any) => {
     setAssigningUser(user);
     setSelectedProjectId(user.projectId || '');
-    
+
     // Find all tasks currently assigned to this user's name
     const userTasks = tasks.filter(t => t.assignee === user.fullName);
     setSelectedTaskIds(userTasks.map(t => t.id));
   };
 
   const handleToggleTaskSelection = (taskId: string) => {
-    setSelectedTaskIds(prev => 
+    setSelectedTaskIds(prev =>
       prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
     );
   };
@@ -175,7 +175,7 @@ export function AdminDashboard() {
     }
   };
 
-  const filteredUsers = users.filter(u => 
+  const filteredUsers = users.filter(u =>
     u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -228,7 +228,7 @@ export function AdminDashboard() {
       {/* Directory Table Grid */}
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm overflow-hidden flex flex-col">
         <h2 className="text-md font-bold tracking-tight mb-4">User Registry Directory</h2>
-        
+
         <div className="overflow-x-auto pr-1">
           <table className="w-full border-collapse text-left">
             <thead>
@@ -288,7 +288,7 @@ export function AdminDashboard() {
                           onClick={() => handleToggleActive(userItem)}
                           className={cn(
                             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold border uppercase transition-colors cursor-pointer",
-                            userItem.isActive 
+                            userItem.isActive
                               ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
                               : "bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20"
                           )}
@@ -442,7 +442,7 @@ export function AdminDashboard() {
                   Assigned Scope Tasks List
                 </label>
                 <p className="text-[10px] text-muted-foreground">Select which tasks are assigned to this employee:</p>
-                
+
                 <div className="border border-border rounded-xl bg-background/50 divide-y divide-border/60 max-h-48 overflow-y-auto pr-1">
                   {tasks.length === 0 ? (
                     <p className="text-xs text-muted-foreground p-4 text-center italic">No tasks created in system.</p>
@@ -452,8 +452,8 @@ export function AdminDashboard() {
                       .map((task) => {
                         const isChecked = selectedTaskIds.includes(task.id);
                         return (
-                          <div 
-                            key={task.id} 
+                          <div
+                            key={task.id}
                             onClick={() => handleToggleTaskSelection(task.id)}
                             className="flex items-start gap-3 p-3 hover:bg-secondary/20 transition-colors cursor-pointer select-none"
                           >
