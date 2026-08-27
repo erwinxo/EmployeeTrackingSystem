@@ -31,6 +31,9 @@ export class UserRepository {
 
   async findAll() {
     return prisma.user.findMany({
+      where: {
+        role: { not: 'SUPER_ADMIN' }
+      },
       select: {
         id: true,
         fullName: true,

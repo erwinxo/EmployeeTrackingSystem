@@ -37,6 +37,7 @@ export class UserController {
         // Find users matching project assignment, task assignees, or the PM themselves
         const users = await prisma.user.findMany({
           where: {
+            role: { not: 'SUPER_ADMIN' },
             OR: [
               { projectId: { in: projectIds } },
               { fullName: { in: assignees as string[] } },
@@ -83,7 +84,10 @@ export class UserController {
         });
         if (currentUser?.projectId) {
           const users = await prisma.user.findMany({
-            where: { projectId: currentUser.projectId },
+            where: {
+              role: { not: 'SUPER_ADMIN' },
+              projectId: currentUser.projectId
+            },
             select: {
               id: true,
               fullName: true,

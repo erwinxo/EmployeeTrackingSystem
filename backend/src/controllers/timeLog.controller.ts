@@ -135,7 +135,9 @@ export class TimeLogController {
         endOfToday = new Date(end);
       }
 
-      let userFilter: any = {};
+      let userFilter: any = {
+        role: { not: 'SUPER_ADMIN' }
+      };
       if (userRole === 'PROJECT_MANAGER' && userId) {
         const myProjects = await prisma.project.findMany({
           where: { projectManagerId: userId },
@@ -148,6 +150,7 @@ export class TimeLogController {
         });
         const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
         userFilter = {
+          role: { not: 'SUPER_ADMIN' },
           OR: [
             { projectId: { in: projectIds } },
             { fullName: { in: assignees as string[] } },
@@ -222,6 +225,9 @@ export class TimeLogController {
           gte: startOfToday,
           lte: endOfToday,
         },
+        user: {
+          role: { not: 'SUPER_ADMIN' }
+        }
       };
 
       if (userRole === 'PROJECT_MANAGER' && userId) {
@@ -236,6 +242,7 @@ export class TimeLogController {
         });
         const assignees = Array.from(new Set(myTasks.map(t => t.assignee).filter(Boolean)));
         logFilter.user = {
+          role: { not: 'SUPER_ADMIN' },
           OR: [
             { projectId: { in: projectIds } },
             { fullName: { in: assignees as string[] } },
