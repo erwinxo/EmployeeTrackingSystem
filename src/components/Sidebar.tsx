@@ -35,7 +35,7 @@ export function Sidebar({ mobileOpen, setMobileOpen, collapsed, setCollapsed }: 
       name: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
-      roles: ['ADMIN', 'MANAGER', 'PROJECT_MANAGER', 'EMPLOYEE'],
+      roles: ['ADMIN', 'MANAGER', 'PROJECT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN'],
     },
     {
       name: 'Employees',

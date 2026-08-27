@@ -1,6 +1,6 @@
 // Comprehensive TypeScript Types & Interfaces for Employee Tracking System
 
-export type UserRole = 'ADMIN' | 'PROJECT_MANAGER' | 'MANAGER' | 'EMPLOYEE'
+export type UserRole = 'ADMIN' | 'PROJECT_MANAGER' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN'
 
 export interface User {
   id: string

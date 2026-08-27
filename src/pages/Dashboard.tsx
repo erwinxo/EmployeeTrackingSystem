@@ -1,4 +1,4 @@
-import { useAuth, useSocket } from '../hooks'
+import { useAuth, useSocket, useSystemSettings } from '../hooks'
 import { cn } from '../utils'
 import {
   FolderGit2,
@@ -96,6 +96,7 @@ const computeActiveDurations = (todayLogs: any[]) => {
 export default function Dashboard() {
   const { user, updateUser } = useAuth()
   const { onlineUsers } = useSocket()
+  const { features, toggleFeature } = useSystemSettings()
   const [searchTerm, setSearchTerm] = useState('')
 
   // Live state
@@ -417,6 +418,121 @@ export default function Dashboard() {
   }).reverse()
 
   if (!user) return null
+
+  if (user.role === 'SUPER_ADMIN') {
+    return (
+      <div className="space-y-6">
+        {/* Welcome Banner */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm overflow-hidden relative">
+          <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/3 h-[250px] w-[250px] rounded-full bg-primary/5 blur-[50px] pointer-events-none" />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div>
+              <div className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider mb-2">
+                <Sparkles size={10} />
+                <span>Super Admin Panel</span>
+              </div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+                Hello, Super Admin
+              </h1>
+              <p className="text-muted-foreground text-sm max-w-xl mt-1">
+                Welcome back to ThinkCove. Below are the global options to enable or disable features for your clients.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Global Feature Flags Toggle Controls */}
+        <div className="grid gap-6 sm:grid-cols-3">
+          {/* Messaging (E2EE Chat) */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between min-h-[180px] hover:shadow-md transition-all">
+            <div>
+              <div className="p-3 bg-primary/10 text-primary rounded-xl w-fit mb-4">
+                <FolderGit2 size={20} />
+              </div>
+              <h3 className="text-sm font-bold text-foreground">Messaging (E2EE Chat)</h3>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
+                Manage whether clients can access the E2EE Chat messaging system.
+              </p>
+            </div>
+            <div className="flex items-center justify-between border-t border-border/60 pt-4 mt-6">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                features.FEATURE_CHAT ? 'text-emerald-500' : 'text-muted-foreground'
+              }`}>
+                {features.FEATURE_CHAT ? 'Active' : 'Disabled'}
+              </span>
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={features.FEATURE_CHAT}
+                  onChange={() => toggleFeature('FEATURE_CHAT', !features.FEATURE_CHAT)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-secondary peer-focus:outline-none rounded-full peer peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
+              </label>
+            </div>
+          </div>
+
+          {/* Reports */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between min-h-[180px] hover:shadow-md transition-all">
+            <div>
+              <div className="p-3 bg-violet-500/10 text-violet-500 rounded-xl w-fit mb-4">
+                <ClipboardList size={20} />
+              </div>
+              <h3 className="text-sm font-bold text-foreground">Reports</h3>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
+                Manage client access to download and generate work hour reports.
+              </p>
+            </div>
+            <div className="flex items-center justify-between border-t border-border/60 pt-4 mt-6">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                features.FEATURE_REPORTS ? 'text-emerald-500' : 'text-muted-foreground'
+              }`}>
+                {features.FEATURE_REPORTS ? 'Active' : 'Disabled'}
+              </span>
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={features.FEATURE_REPORTS}
+                  onChange={() => toggleFeature('FEATURE_REPORTS', !features.FEATURE_REPORTS)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-secondary peer-focus:outline-none rounded-full peer peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
+              </label>
+            </div>
+          </div>
+
+          {/* Tasks */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between min-h-[180px] hover:shadow-md transition-all">
+            <div>
+              <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl w-fit mb-4">
+                <CheckSquare size={20} />
+              </div>
+              <h3 className="text-sm font-bold text-foreground">Tasks</h3>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
+                Manage client access to allocate tasks and update progress boards.
+              </p>
+            </div>
+            <div className="flex items-center justify-between border-t border-border/60 pt-4 mt-6">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                features.FEATURE_TASKS ? 'text-emerald-500' : 'text-muted-foreground'
+              }`}>
+                {features.FEATURE_TASKS ? 'Active' : 'Disabled'}
+              </span>
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={features.FEATURE_TASKS}
+                  onChange={() => toggleFeature('FEATURE_TASKS', !features.FEATURE_TASKS)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-secondary peer-focus:outline-none rounded-full peer peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const getStats = () => {
     switch (user.role) {
