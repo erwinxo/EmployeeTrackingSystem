@@ -10,4 +10,10 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
-})
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    exclude: ['backend/**', 'node_modules/**'],
+  },
+} as any)

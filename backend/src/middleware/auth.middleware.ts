@@ -3,7 +3,7 @@ import { verifyToken } from '../utils/jwt';
 
 export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader || !/^bearer /i.test(authHeader)) {
     res.status(401).json({ success: false, message: 'Unauthorized', data: null, errors: ['Missing token'] });
     return;
   }
