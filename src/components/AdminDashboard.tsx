@@ -6,8 +6,10 @@ import {
   Edit, Loader2
 } from 'lucide-react';
 import { cn } from '../utils';
+import { useSocket } from '../hooks';
 
 export function AdminDashboard() {
+  const { socket } = useSocket();
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -48,6 +50,21 @@ export function AdminDashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleDirectoryUpdate = () => {
+      console.log('Real-time user directory update received, re-fetching...');
+      fetchData();
+    };
+
+    socket.on('user_directory_update', handleDirectoryUpdate);
+
+    return () => {
+      socket.off('user_directory_update', handleDirectoryUpdate);
+    };
+  }, [socket]);
 
   // Update profile details (Name, Email, Password) and Role
   const handleUpdateProfile = async (e: React.FormEvent) => {

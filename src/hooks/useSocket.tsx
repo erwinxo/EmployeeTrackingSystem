@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './useAuth';
 import { STORAGE_KEYS } from '../constants';
+import { toast } from 'sonner';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -12,7 +13,7 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType>({ socket: null, onlineUsers: [], isConnected: false });
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -73,6 +74,20 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           return prev.filter((id) => id !== payload.userId);
         }
       });
+    });
+
+    socketInstance.on('user_profile_sync', (payload: any) => {
+      console.log('Real-time profile sync received:', payload);
+      if (user && user.id === payload.id) {
+        updateUser({
+          name: payload.name,
+          email: payload.email,
+          role: payload.role.toUpperCase(),
+          projectId: payload.projectId || undefined,
+          currentStatus: payload.currentStatus || undefined,
+        });
+        toast.info('Your workspace configuration has been updated in real-time by an administrator.');
+      }
     });
 
     return () => {

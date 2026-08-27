@@ -236,6 +236,27 @@ export class UserController {
         });
       }
 
+      // Broadcast user update dynamically in real-time
+      try {
+        const { socketIO } = require('../socket');
+        if (socketIO) {
+          // Send targeted profile sync to the modified user
+          socketIO.to(`user_${id}`).emit('user_profile_sync', {
+            id: updated.id,
+            name: updated.fullName,
+            email: updated.email,
+            role: updated.role,
+            projectId: updated.projectId,
+            currentStatus: updated.currentStatus,
+          });
+
+          // Notify admins/managers to refresh directory tables dynamically
+          socketIO.emit('user_directory_update', { userId: id });
+        }
+      } catch (err) {
+        console.error('Failed to broadcast user update via WebSocket:', err);
+      }
+
       res.status(200).json(successResponse('User updated successfully', updated));
     } catch (error) {
       res.status(400).json({ success: false, message: 'Failed to update user', data: null, errors: [(error as Error).message] });
