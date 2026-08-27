@@ -181,11 +181,18 @@ export const useE2EE = (userId: string | null | undefined) => {
       if (!keyPair) {
         // Check if server backup exists
         let backupData = null;
+        let isBackupMissing = false;
         try {
           const res = await api.get('/users/private-key-backup');
           backupData = res.data.data;
-        } catch (e) {
-          console.log('No server private key backup found, creating new keys.');
+        } catch (e: any) {
+          if (e.response?.status === 404) {
+            isBackupMissing = true;
+            console.log('No server private key backup found, creating new keys.');
+          } else {
+            console.error('Failed to retrieve private key backup:', e);
+            throw e; // Abort key generation to prevent key overwrite on temporary server errors
+          }
         }
 
         if (backupData && password) {
@@ -209,8 +216,8 @@ export const useE2EE = (userId: string | null | undefined) => {
           }
         }
 
-        // Generate new keys if backup did not exist or restoration failed
-        if (!keyPair) {
+        // Generate new keys ONLY if no backup exists on the server
+        if (!keyPair && isBackupMissing) {
           keyPair = await window.crypto.subtle.generateKey(
             {
               name: 'ECDH',
