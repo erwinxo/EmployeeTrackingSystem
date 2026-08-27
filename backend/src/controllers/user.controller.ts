@@ -170,19 +170,25 @@ export class UserController {
   async update(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
-      const { fullName, email, role, isActive, department, taskIds, projectId } = req.body;
+      const { fullName, email, password, role, isActive, department, taskIds, projectId } = req.body;
 
       // Get old user details to manage task modifications
       const oldUser = await prisma.user.findUnique({ where: { id } });
 
-      const updated = await userRepository.updateUser(id, {
+      const updateData: any = {
         fullName,
         email,
         role,
         isActive,
         department,
         projectId: (role === 'EMPLOYEE' || role === 'PROJECT_MANAGER') ? projectId || null : null,
-      });
+      };
+
+      if (password) {
+        updateData.password = await bcrypt.hash(password, 10);
+      }
+
+      const updated = await userRepository.updateUser(id, updateData);
 
       // Synchronize task assignments if taskIds is explicitly provided
       if (taskIds && Array.isArray(taskIds)) {

@@ -21,6 +21,7 @@ import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
+import { AdminDashboard } from '../components/AdminDashboard'
 
 const computeActiveDurations = (todayLogs: any[]) => {
   let workMs = 0;
@@ -419,6 +420,10 @@ export default function Dashboard() {
 
   if (!user) return null
 
+  if (user.role === 'ADMIN') {
+    return <AdminDashboard />
+  }
+
   if (user.role === 'SUPER_ADMIN') {
     return (
       <div className="space-y-6">
@@ -599,7 +604,7 @@ export default function Dashboard() {
       </div>
 
       {/* Check-in Widget */}
-      {user.role !== 'ADMIN' && (
+      {(user.role as string) !== 'ADMIN' && (
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
           <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/3 h-[180px] w-[180px] rounded-full bg-secondary/20 blur-[40px] pointer-events-none" />
           <div className="flex items-center gap-4 relative z-10">
@@ -948,7 +953,7 @@ export default function Dashboard() {
       </div>
 
       {/* Team Status and Activity Monitor for Managers */}
-      {(user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'PROJECT_MANAGER') && (
+      {((user.role as string) === 'ADMIN' || user.role === 'MANAGER' || user.role === 'PROJECT_MANAGER') && (
         <div className="grid gap-6 lg:grid-cols-4">
           {/* Team Status Grid */}
           <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col h-[400px]">
@@ -1241,7 +1246,7 @@ export default function Dashboard() {
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-sm text-muted-foreground">Supervision Tier</span>
-              <span className="text-sm font-semibold">{user.role === 'ADMIN' ? 'Owner / Administrator' : 'Manager Assigned'}</span>
+              <span className="text-sm font-semibold">{(user.role as string) === 'ADMIN' ? 'Owner / Administrator' : 'Manager Assigned'}</span>
             </div>
           </div>
         </div>
