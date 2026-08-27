@@ -344,7 +344,7 @@ export default function Chat() {
       console.error('Decryption failed for message ID:', msg.id, err);
       return {
         ...msg,
-        decryptedContent: '⚠️ Verification failed (Corrupt payload)',
+        decryptedContent: '⚠️ Decryption failed (Key mismatch or device reset)',
       };
     }
   }
