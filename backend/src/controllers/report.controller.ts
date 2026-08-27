@@ -35,6 +35,8 @@ export class ReportController {
 
       // Determine time log scoping boundaries
       let timeLogWhere: any = {};
+      let userWhere: any = { role: { not: 'SUPER_ADMIN' } };
+
       if (userRole === 'PROJECT_MANAGER' && userId) {
         const myProjects = await prisma.project.findMany({
           where: { projectManagerId: userId },
@@ -49,6 +51,7 @@ export class ReportController {
         
         timeLogWhere = {
           user: {
+            role: { not: 'SUPER_ADMIN' },
             OR: [
               { projectId: { in: projectIds } },
               { fullName: { in: assignees as string[] } },
@@ -56,16 +59,32 @@ export class ReportController {
             ]
           }
         };
+
+        userWhere = {
+          role: { not: 'SUPER_ADMIN' },
+          OR: [
+            { projectId: { in: projectIds } },
+            { fullName: { in: assignees as string[] } },
+            { id: userId }
+          ]
+        };
       } else if (userRole === 'MANAGER') {
         timeLogWhere = {
           user: {
             role: { in: ['PROJECT_MANAGER', 'EMPLOYEE'] }
           }
         };
+        userWhere = {
+          role: { in: ['PROJECT_MANAGER', 'EMPLOYEE'] }
+        };
       }
 
       // Fetch active data concurrently
-      const [projects, tasks, requirements, timeLogs] = await Promise.all([
+      const [users, projects, tasks, requirements, timeLogs] = await Promise.all([
+        prisma.user.findMany({
+          where: userWhere,
+          orderBy: { fullName: 'asc' }
+        }),
         prisma.project.findMany({
           where: projectWhere,
           include: { tasks: true, requirements: true },
@@ -86,60 +105,119 @@ export class ReportController {
       ]);
 
       if (format === 'pdf') {
-        // Generate PDF report using pdfkit
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=workspace_analytics_report.pdf');
 
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
         doc.pipe(res);
 
-        // Header Title
-        doc.fillColor('#0f172a').fontSize(24).text('Employee Tracking System', { align: 'center' });
-        doc.fillColor('#334155').fontSize(14).text('System Status & Deliverables Summary', { align: 'center' });
-        doc.fontSize(8).fillColor('#64748b').text(`Generated on: ${new Date().toLocaleString()}`, { align: 'center' });
-        doc.moveDown(2);
+        const downloadedTime = new Date().toLocaleString();
+        let currentY = 70;
 
-        // Core Summary Metrics
-        doc.fillColor('#0f172a').fontSize(14).text('1. Workspace Metrics Summary', { underline: true });
-        doc.moveDown(0.5);
-        doc.fontSize(11).fillColor('#334155');
-        doc.text(`Total Active Projects: ${projects.length}`);
-        doc.text(`Total Client Requirements: ${requirements.length}`);
-        doc.text(`Total Workflow Tasks: ${tasks.length}`);
-        doc.text(`Total Registered Shift Logs: ${timeLogs.length}`);
-        doc.moveDown(2);
+        const drawHeader = () => {
+          doc.save();
+          // Draw Thinkcove Technologies purple logo
+          doc.strokeColor('#4f46e5').lineWidth(2);
+          doc.circle(32, 34, 7).stroke();
+          doc.moveTo(29, 43).lineTo(35, 43).stroke();
+          doc.moveTo(30, 46).lineTo(34, 46).stroke();
+          // Rays
+          doc.moveTo(32, 24).lineTo(32, 21).stroke();
+          doc.moveTo(23, 29).lineTo(20, 26).stroke();
+          doc.moveTo(41, 29).lineTo(44, 26).stroke();
+          doc.restore();
 
-        // Active Projects Details
-        doc.fontSize(14).fillColor('#0f172a').text('2. Project Tracking Details', { underline: true });
-        doc.moveDown(0.5);
+          // Header branding text
+          doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000').text('Thinkcove Technologies', 52, 33);
+          
+          // Right-aligned download date & time
+          doc.font('Helvetica').fontSize(8.5).fillColor('#475569').text(`Downloaded: ${downloadedTime}`, 350, 37, { width: 242, align: 'right' });
+          
+          // Dividers line
+          doc.moveTo(20, 50).lineTo(592, 50).strokeColor('#000000').lineWidth(1).stroke();
+        };
 
-        for (const proj of projects) {
-          const totalTasks = proj.tasks.length;
-          const completedTasks = proj.tasks.filter((t) => t.status === 'Completed' || t.status === 'FINISHED').length;
-          const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        // Draw header on the first page
+        drawHeader();
 
-          doc.fontSize(12).fillColor('#0f172a').text(`Project: ${proj.name}`);
-          doc.fontSize(10).fillColor('#475569');
-          doc.text(`  Status: ${proj.status}`);
-          doc.text(`  Milestone Progress: ${pct}% (${completedTasks}/${totalTasks} tasks completed)`);
-          doc.text(`  Functional Requirements Traced: ${proj.requirements.length}`);
-          if (proj.description) {
-            doc.text(`  Description: ${proj.description}`);
+        // Loop through all users to render their cards
+        for (const user of users) {
+          const userTasks = tasks.filter((t) => t.assignee === user.fullName);
+          const userLogs = timeLogs.filter((log) => log.userId === user.id);
+          const assignedProj = projects.find((p) => p.id === user.projectId);
+
+          // Calculate height needed for this user's card
+          const headerHeight = 30;
+          const projHeight = 15;
+          const tasksHeight = 15 + Math.max(1, userTasks.length) * 13;
+          const logsHeight = 15 + Math.max(1, userLogs.length) * 13;
+          const cardHeight = headerHeight + projHeight + tasksHeight + logsHeight + 15;
+
+          // Check if we need a new page before drawing this card
+          if (currentY + cardHeight > 730) {
+            doc.addPage();
+            drawHeader();
+            currentY = 70;
           }
-          doc.moveDown(1);
-        }
 
-        // Attendance & Shift Time Logs
-        doc.addPage();
-        doc.fontSize(14).fillColor('#0f172a').text('3. Employee Shift Logging & Activity Logs', { underline: true });
-        doc.moveDown(0.5);
+          // Draw Rounded Card Background and Border
+          doc.save();
+          doc.fillColor('#f8fafc').roundedRect(50, currentY, 512, cardHeight, 8).fill();
+          doc.strokeColor('#e2e8f0').lineWidth(1).roundedRect(50, currentY, 512, cardHeight, 8).stroke();
+          doc.restore();
 
-        for (const log of timeLogs) {
-          const userName = log.user?.fullName || 'Unknown User';
-          const timestamp = new Date(log.timestamp).toLocaleString();
-          const type = log.type.replace('_', ' ');
-          const notesStr = log.notes ? ` (Notes: ${log.notes})` : '';
-          doc.fontSize(10).fillColor('#334155').text(`• [${timestamp}] ${userName} - ${type}${notesStr}`);
+          // User Name & Role Info
+          doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text(user.fullName, 65, currentY + 12);
+          const roleLabel = `${user.role} • ${user.department || 'No Department'}`;
+          doc.font('Helvetica').fontSize(8.5).fillColor('#64748b').text(roleLabel, 300, currentY + 14, { width: 247, align: 'right' });
+
+          // Project Details
+          const projName = assignedProj ? assignedProj.name : 'Unassigned';
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#334155').text('Project: ', 65, currentY + 32);
+          doc.font('Helvetica').fontSize(9).fillColor('#475569').text(projName, 110, currentY + 32);
+
+          // Tasks Section
+          let subY = currentY + 48;
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#334155').text('Assigned Tasks:', 65, subY);
+          subY += 14;
+
+          if (userTasks.length === 0) {
+            doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#94a3b8').text('No active tasks assigned.', 75, subY);
+            subY += 13;
+          } else {
+            for (const task of userTasks) {
+              const statusSymbol = task.status === 'Completed' || task.status === 'FINISHED' ? '✓' : '○';
+              const statusColor = task.status === 'Completed' || task.status === 'FINISHED' ? '#10b981' : '#f59e0b';
+              
+              doc.save();
+              doc.fillColor(statusColor).font('Helvetica-Bold').fontSize(8.5).text(statusSymbol, 75, subY);
+              doc.fillColor('#334155').font('Helvetica').fontSize(8.5).text(`[${task.status}] ${task.title}`, 90, subY);
+              doc.restore();
+              subY += 13;
+            }
+          }
+
+          // Logs Section
+          subY += 5;
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#334155').text('Shift Activity Logs (Today):', 65, subY);
+          subY += 14;
+
+          if (userLogs.length === 0) {
+            doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#94a3b8').text('No shift activity registered today.', 75, subY);
+            subY += 13;
+          } else {
+            for (const log of userLogs) {
+              const logTime = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const logType = log.type.replace('_', ' ');
+              const notesStr = log.notes ? ` (Notes: ${log.notes})` : '';
+              
+              doc.font('Helvetica').fontSize(8.5).fillColor('#64748b').text(`• [${logTime}] ${logType}${notesStr}`, 75, subY);
+              subY += 13;
+            }
+          }
+
+          // Advance currentY for the next card
+          currentY += cardHeight + 15;
         }
 
         doc.end();
