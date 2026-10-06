@@ -13,7 +13,7 @@ The Employee Tracking System (ETS) is designed to streamline resource allocation
 
 ---
 
-## 🏗️ Project Architecture & Construction
+## Project Architecture & Construction
 
 The system is constructed as a clean, modular single-page React application (SPA).
 
@@ -68,7 +68,7 @@ The workspace follows a feature-driven, layered directory design:
 
 ---
 
-## ⚙️ How the Tracker Works (Core Mechanics)
+## How the Tracker Works (Core Mechanics)
 
 ### 1. Role-Based Access Control (RBAC)
 Authorization limits view capabilities and route navigation using the `RoleGuard` component defined in [routes/index.tsx](file:///src/routes/index.tsx). 
@@ -94,7 +94,7 @@ The communication layer in [services/api.ts](file:///src/services/api.ts) relies
 
 ---
 
-## 🚀 Getting Started & Local Setup
+## Getting Started & Local Setup
 
 ### Prerequisites
 *   Node.js (v18.x or newer recommended)
@@ -135,7 +135,7 @@ npm run preview
 
 ---
 
-## 🔒 Security Guidelines
+## Security Guidelines
 
 *   **No Hardcoded Secrets:** Never store production JSON Web Token secret keys, API passwords, database credentials, or server addresses in the `.env` template or main codebase. Use host environment injectors in production.
 *   **Git Security:** The `.env` file is excluded in `.gitignore` to prevent leaking custom dev variables. Never remove `.env` from the ignores list.
